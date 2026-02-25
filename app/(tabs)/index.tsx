@@ -1,98 +1,224 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { FABButton } from '@/components/fab-button';
+import { FilterPills } from '@/components/filter-pills';
+import { SummaryCard } from '@/components/summary-card';
+import { TransactionItem } from '@/components/transaction-item';
+import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function DashboardScreen() {
+  const router = useRouter();
 
-export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>O</Text>
+            </View>
+            <View>
+              <Text style={styles.welcomeLabel}>WELCOME BACK</Text>
+              <Text style={styles.ownerName}>Owner</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
+            <MaterialIcons name="notifications-none" size={24} color={Colors.light.text} />
+            <View style={styles.notifDot} />
+          </TouchableOpacity>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Summary Cards */}
+          <View style={styles.cardsGrid}>
+            <View style={styles.cardRow}>
+              <SummaryCard
+                icon="arrow-downward"
+                label="Owed to Me"
+                amount="$12,450"
+                backgroundColor={Colors.light.cardOwed}
+                iconColor={Colors.light.primaryMuted}
+                amountColor={Colors.light.primary}
+              />
+              <SummaryCard
+                icon="arrow-upward"
+                label="I Owe"
+                amount="$850"
+                backgroundColor={Colors.light.cardIOwe}
+                iconColor={Colors.light.accentOrange}
+                amountColor={Colors.light.primary}
+              />
+            </View>
+            <View style={styles.cardRow}>
+              <SummaryCard
+                icon="warning"
+                label="Overdue"
+                amount="$320"
+                backgroundColor={Colors.light.cardOverdue}
+                iconColor={Colors.light.error}
+                amountColor={Colors.light.error}
+              />
+              <SummaryCard
+                icon="schedule"
+                label="Pending"
+                amount="$150"
+                backgroundColor={Colors.light.cardPending}
+                iconColor={Colors.light.accent}
+                amountColor={Colors.light.accent}
+              />
+            </View>
+          </View>
+
+          {/* Filter Pills */}
+          <FilterPills filters={['All Activity', 'Due Soon', 'High Amount']} />
+
+          {/* Recent Activity */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TransactionItem
+            name="John Doe"
+            description="Grocery Split"
+            time="Today, 10:23 AM"
+            amount="$45.00"
+            isPositive={true}
+          />
+          <TransactionItem
+            name="Alice Smith"
+            description="Dinner Bill"
+            time="Yesterday"
+            amount="$85.50"
+            isPositive={false}
+            avatarColor={Colors.light.accentOrange}
+          />
+          <TransactionItem
+            name="Mike K."
+            description="Rent Share"
+            time="2 days ago"
+            amount="$650.00"
+            isPositive={true}
+            avatarColor={Colors.light.accentTeal}
+          />
+          <TransactionItem
+            name="Sarah R."
+            description="Utilities"
+            time="5 days ago"
+            amount="$120.00"
+            isPositive={true}
+            avatarColor={Colors.light.accent}
+          />
+        </ScrollView>
+
+        {/* FAB */}
+        <FABButton onPress={() => router.push('/modal')} />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  profileAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.light.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileAvatarText: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.textInverse,
+  },
+  welcomeLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.textSecondary,
+    letterSpacing: 1,
+  },
+  ownerName: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  notifBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.light.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Shadow.sm,
+  },
+  notifDot: {
     position: 'absolute',
+    top: 10,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.error,
+    borderWidth: 1.5,
+    borderColor: Colors.light.surface,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: 120,
+  },
+  cardsGrid: {
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  viewAll: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.primaryMuted,
   },
 });
