@@ -46,4 +46,18 @@
   - Lint passes (existing error in staff.tsx unrelated)
   - Manual test: Login as owner - full access, login as staff with limited permissions - UI disables/hides restricted functions
 
+## Phase 4: Offline Sync & QA
+
+### Offline sync & reconciliation
+- **Status**: done
+- **Files inspected**: src/services/paymentService.ts, docs/frontend-implementation.md
+- **Files added**: 
+  - src/services/syncService.ts - Offline queue with localStorage, queueOperation, flushQueue, getSyncStatus
+  - src/components/ConflictModal.tsx - Modal for resolving sync conflicts
+  - docs/frontend-smoke-tests.md - Manual test scenarios
+  - docs/frontend-dev-notes.md - Developer runbook
+- **Verification**: 
+  - TypeScript compiles without errors
+  - Lint passes (existing error in staff.tsx unrelated)
+  - Manual test: Create ledger offline (queue), flush queue, verify clientTempId → serverAssignedId mapping
 
