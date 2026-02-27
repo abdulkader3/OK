@@ -2,9 +2,10 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { createLedger } from '@/services/ledgerService';
 import { recordPayment, RecordPaymentData } from '@/services/paymentService';
 import { generateIdempotencyKey } from '@/utils/generateIdempotencyKey';
+import { usePermissions } from '../src/hooks/usePermissions';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,10 +24,30 @@ type ModalMode = 'payment' | 'create';
 export default function RecordPaymentModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string }>();
+  const { canCreateLedger, canRecordPayment } = usePermissions();
+  
   const ledgerId = params.ledgerId;
   const outstandingBalance = ledgerId ? parseFloat(params.outstandingBalance || '0') : 0;
   
-  const [mode, setMode] = useState<ModalMode>(ledgerId ? 'payment' : 'create');
+  const [mode, setMode] = useState<ModalMode>(() => {
+    if (ledgerId) return 'payment';
+    return canCreateLedger ? 'create' : 'payment';
+  });
+
+  useEffect(() => {
+    if (!ledgerId && !canCreateLedger) {
+      Alert.alert('Permission Required', 'You do not have permission to create ledgers.');
+      router.back();
+    }
+  }, [canCreateLedger, ledgerId, router]);
+
+  useEffect(() => {
+    if (ledgerId && !canRecordPayment) {
+      Alert.alert('Permission Required', 'You do not have permission to record payments.');
+      router.back();
+    }
+  }, [canRecordPayment, ledgerId, router]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

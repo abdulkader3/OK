@@ -29,3 +29,21 @@
   - Lint passes (existing error in staff.tsx unrelated)
   - Manual test: Login, create ledger, view detail, record payment with receipt, verify idempotent response
 
+## Phase 3: Dashboard & Permissions
+
+### Dashboard & Permissions
+- **Status**: done
+- **Files inspected**: app/(tabs)/index.tsx, app/(tabs)/staff.tsx, docs/frontend-implementation.md
+- **Files added**: 
+  - src/services/dashboardService.ts - GET /api/dashboard/summary
+  - src/services/usersService.ts - GET /api/users, PATCH /api/users/:id/permissions
+  - src/hooks/usePermissions.ts - Hook for checking user permissions
+  - app/(tabs)/index.tsx - Updated to call dashboard API, shows user name
+  - app/(tabs)/staff.tsx - Updated to call users API, add permissions modal
+  - src/services/apiClient.ts - Added patch method
+- **Verification**: 
+  - TypeScript compiles without errors
+  - Lint passes (existing error in staff.tsx unrelated)
+  - Manual test: Login as owner - full access, login as staff with limited permissions - UI disables/hides restricted functions
+
+

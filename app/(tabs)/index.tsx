@@ -3,14 +3,77 @@ import { FilterPills } from '@/components/filter-pills';
 import { SummaryCard } from '@/components/summary-card';
 import { TransactionItem } from '@/components/transaction-item';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
+import { getDashboardSummary, DashboardLedger } from '@/services/dashboardService';
+import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [summary, setSummary] = useState<{
+    totalOwedToMe: number;
+    totalIOwe: number;
+    overdueCount: number;
+    highPriorityCount: number;
+    recentLedgers: DashboardLedger[];
+    dueLedgers: DashboardLedger[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchSummary = useCallback(async () => {
+    try {
+      const data = await getDashboardSummary();
+      setSummary(data);
+    } catch (error) {
+      console.error('Error fetching dashboard:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchSummary();
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const renderLedgerItem = (ledger: DashboardLedger, index: number) => {
+    const isPositive = ledger.type === 'owes_me';
+    return (
+      <TransactionItem
+        key={ledger._id}
+        name={ledger.counterpartyName}
+        description={ledger.priority.charAt(0).toUpperCase() + ledger.priority.slice(1) + ' Priority'}
+        time={new Date(ledger.createdAt).toLocaleDateString()}
+        amount={formatCurrency(ledger.outstandingBalance)}
+        isPositive={isPositive}
+        avatarColor={isPositive ? Colors.light.accentTeal : Colors.light.accentOrange}
+      />
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.light.primaryMuted} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -19,22 +82,25 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>O</Text>
+              <Text style={styles.profileAvatarText}>
+                {user?.name?.charAt(0)?.toUpperCase() || 'O'}
+              </Text>
             </View>
             <View>
               <Text style={styles.welcomeLabel}>WELCOME BACK</Text>
-              <Text style={styles.ownerName}>Owner</Text>
+              <Text style={styles.ownerName}>{user?.name || 'Owner'}</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
             <MaterialIcons name="notifications-none" size={24} color={Colors.light.text} />
-            <View style={styles.notifDot} />
+            {summary && summary.overdueCount > 0 && <View style={styles.notifDot} />}
           </TouchableOpacity>
         </View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {/* Summary Cards */}
           <View style={styles.cardsGrid}>
@@ -42,7 +108,7 @@ export default function DashboardScreen() {
               <SummaryCard
                 icon="arrow-downward"
                 label="Owed to Me"
-                amount="$12,450"
+                amount={formatCurrency(summary?.totalOwedToMe || 0)}
                 backgroundColor={Colors.light.cardOwed}
                 iconColor={Colors.light.primaryMuted}
                 amountColor={Colors.light.primary}
@@ -50,7 +116,7 @@ export default function DashboardScreen() {
               <SummaryCard
                 icon="arrow-upward"
                 label="I Owe"
-                amount="$850"
+                amount={formatCurrency(summary?.totalIOwe || 0)}
                 backgroundColor={Colors.light.cardIOwe}
                 iconColor={Colors.light.accentOrange}
                 amountColor={Colors.light.primary}
@@ -60,15 +126,15 @@ export default function DashboardScreen() {
               <SummaryCard
                 icon="warning"
                 label="Overdue"
-                amount="$320"
+                amount={String(summary?.overdueCount || 0)}
                 backgroundColor={Colors.light.cardOverdue}
                 iconColor={Colors.light.error}
                 amountColor={Colors.light.error}
               />
               <SummaryCard
                 icon="schedule"
-                label="Pending"
-                amount="$150"
+                label="High Priority"
+                amount={String(summary?.highPriorityCount || 0)}
                 backgroundColor={Colors.light.cardPending}
                 iconColor={Colors.light.accent}
                 amountColor={Colors.light.accent}
@@ -82,42 +148,21 @@ export default function DashboardScreen() {
           {/* Recent Activity */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity activeOpacity={0.7}>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => router.push('/(tabs)/ledger')}
+            >
               <Text style={styles.viewAll}>View All</Text>
             </TouchableOpacity>
           </View>
 
-          <TransactionItem
-            name="John Doe"
-            description="Grocery Split"
-            time="Today, 10:23 AM"
-            amount="$45.00"
-            isPositive={true}
-          />
-          <TransactionItem
-            name="Alice Smith"
-            description="Dinner Bill"
-            time="Yesterday"
-            amount="$85.50"
-            isPositive={false}
-            avatarColor={Colors.light.accentOrange}
-          />
-          <TransactionItem
-            name="Mike K."
-            description="Rent Share"
-            time="2 days ago"
-            amount="$650.00"
-            isPositive={true}
-            avatarColor={Colors.light.accentTeal}
-          />
-          <TransactionItem
-            name="Sarah R."
-            description="Utilities"
-            time="5 days ago"
-            amount="$120.00"
-            isPositive={true}
-            avatarColor={Colors.light.accent}
-          />
+          {summary?.recentLedgers && summary.recentLedgers.length > 0 ? (
+            summary.recentLedgers.slice(0, 4).map((ledger, index) => renderLedgerItem(ledger, index))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No recent activity</Text>
+            </View>
+          )}
         </ScrollView>
 
         {/* FAB */}
@@ -135,6 +180,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -220,5 +270,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
     color: Colors.light.primaryMuted,
+  },
+  emptyState: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: FontSize.md,
+    color: Colors.light.textMuted,
   },
 });
