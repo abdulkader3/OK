@@ -40,9 +40,12 @@
         }
       ]
     ],
-    "experiments": {
+"experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "API_URL": "https://ok-backend.onrender.com"
     }
   }
 }
