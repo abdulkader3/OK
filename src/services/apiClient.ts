@@ -4,6 +4,12 @@ const { API_URL } = Constants.expoConfig?.extra || {};
 
 const BASE_URL = API_URL || process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}
+
 interface RequestOptions extends RequestInit {
   idempotencyKey?: string;
 }
@@ -15,7 +21,7 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
     const { idempotencyKey, ...fetchOptions } = options;
 
     const headers: HeadersInit = {
@@ -32,24 +38,23 @@ class ApiClient {
       credentials: 'include',
     });
 
+    const data = await response.json().catch(() => ({ success: false, message: 'Request failed' }));
+
     if (!response.ok) {
       if (response.status === 401) {
-        // Silent refresh or redirect to login could be implemented here
-        // For now, rely on HttpOnly cookies - if they're invalid, the backend will handle it
         console.warn('Unauthorized - cookies may have expired');
       }
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      throw new Error(data.message || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return data as ApiResponse<T>;
   }
 
-  async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  async get<T>(endpoint: string, options?: RequestOptions): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
-  async post<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T> {
+  async post<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
@@ -65,11 +70,11 @@ class ApiClient {
     endpoint: string,
     body: unknown,
     idempotencyKey: string
-  ): Promise<T> {
+  ): Promise<ApiResponse<T>> {
     return this.post<T>(endpoint, body, { idempotencyKey });
   }
 
-  async put<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<T> {
+  async put<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
@@ -81,7 +86,7 @@ class ApiClient {
     });
   }
 
-  async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+  async delete<T>(endpoint: string, options?: RequestOptions): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 }

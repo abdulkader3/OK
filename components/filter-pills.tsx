@@ -5,15 +5,25 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 interface FilterPillsProps {
     filters: string[];
     activeIndex?: number;
+    activeFilter?: string;
     onSelect?: (index: number) => void;
+    onFilterChange?: (filter: string) => void;
 }
 
-export function FilterPills({ filters, activeIndex = 0, onSelect }: FilterPillsProps) {
+export function FilterPills({ filters, activeIndex = 0, activeFilter, onSelect, onFilterChange }: FilterPillsProps) {
     const [selected, setSelected] = useState(activeIndex);
 
     const handlePress = (index: number) => {
         setSelected(index);
         onSelect?.(index);
+        onFilterChange?.(filters[index]);
+    };
+
+    const isActive = (index: number) => {
+        if (activeFilter !== undefined) {
+            return filters[index] === activeFilter;
+        }
+        return selected === index;
     };
 
     return (
@@ -23,15 +33,15 @@ export function FilterPills({ filters, activeIndex = 0, onSelect }: FilterPillsP
             contentContainerStyle={styles.container}
         >
             {filters.map((filter, index) => {
-                const isActive = selected === index;
+                const active = isActive(index);
                 return (
                     <TouchableOpacity
                         key={filter}
-                        style={[styles.pill, isActive && styles.pillActive]}
+                        style={[styles.pill, active && styles.pillActive]}
                         onPress={() => handlePress(index)}
                         activeOpacity={0.7}
                     >
-                        <Text style={[styles.pillText, isActive && styles.pillTextActive]}>
+                        <Text style={[styles.pillText, active && styles.pillTextActive]}>
                             {filter}
                         </Text>
                     </TouchableOpacity>

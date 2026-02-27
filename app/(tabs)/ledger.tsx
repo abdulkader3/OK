@@ -2,15 +2,97 @@ import { DebtEntryCard } from '@/components/debt-entry-card';
 import { FABButton } from '@/components/fab-button';
 import { FilterPills } from '@/components/filter-pills';
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { getLedgers, Ledger } from '@/services/ledgerService';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+type FilterType = 'All' | 'Lent' | 'Borrowed' | 'Overdue' | 'Settled';
 
 export default function LedgerScreen() {
     const router = useRouter();
     const [searchText, setSearchText] = useState('');
+    const [ledgers, setLedgers] = useState<Ledger[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+
+    const fetchLedgers = useCallback(async () => {
+        try {
+            setError(null);
+            const filters: Record<string, string> = {};
+            
+            if (activeFilter === 'Lent') filters.type = 'owes_me';
+            if (activeFilter === 'Borrowed') filters.type = 'i_owe';
+            if (searchText) filters.search = searchText;
+            
+            const response = await getLedgers(filters as any);
+            setLedgers(response.ledgers || []);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load ledgers');
+            console.error('Error fetching ledgers:', err);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [activeFilter, searchText]);
+
+    useEffect(() => {
+        fetchLedgers();
+    }, [fetchLedgers]);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchLedgers();
+    }, [fetchLedgers]);
+
+    const getStatusInfo = (ledger: Ledger) => {
+        const now = new Date();
+        const dueDate = ledger.dueDate ? new Date(ledger.dueDate) : null;
+        const isOverdue = dueDate && dueDate < now && ledger.outstandingBalance > 0;
+        const isPaid = ledger.outstandingBalance <= 0;
+
+        if (isPaid) return { label: 'Settled', type: 'paid' as const };
+        if (isOverdue) {
+            const daysOverdue = Math.floor((now.getTime() - dueDate!.getTime()) / (1000 * 60 * 60 * 24));
+            return { label: `Overdue by ${daysOverdue} days`, type: 'overdue' as const };
+        }
+        return { label: 'Active', type: 'active' as const };
+    };
+
+    const formatAmount = (amount: number, type: 'owes_me' | 'i_owe') => {
+        const prefix = type === 'owes_me' ? '+' : '-';
+        return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+    };
+
+    const getLedgerType = (type: 'owes_me' | 'i_owe'): 'lent' | 'borrowed' => {
+        return type === 'owes_me' ? 'lent' : 'borrowed';
+    };
+
+    const renderLedger = (ledger: Ledger) => {
+        const status = getStatusInfo(ledger);
+        return (
+            <TouchableOpacity 
+                key={ledger._id} 
+                activeOpacity={0.9}
+                onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: ledger._id } })}
+            >
+                <DebtEntryCard
+                    name={ledger.counterpartyName}
+                    statusLabel={status.label}
+                    statusType={status.type}
+                    type={getLedgerType(ledger.type)}
+                    description={ledger.notes}
+                    amount={formatAmount(ledger.outstandingBalance, ledger.type)}
+                    onRecordPayment={() => router.push({ pathname: '/modal', params: { ledgerId: ledger._id, outstandingBalance: ledger.outstandingBalance } })}
+                    onSettleUp={() => router.push({ pathname: '/modal', params: { ledgerId: ledger._id, outstandingBalance: ledger.outstandingBalance } })}
+                />
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -30,6 +112,9 @@ export default function LedgerScreen() {
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    }
                 >
                     {/* Search Bar */}
                     <View style={styles.searchContainer}>
@@ -49,49 +134,45 @@ export default function LedgerScreen() {
                     </View>
 
                     {/* Filter Pills */}
-                    <FilterPills filters={['All', 'Lent', 'Borrowed', 'Overdue', 'Settled']} />
+                    <FilterPills 
+                        filters={['All', 'Lent', 'Borrowed', 'Overdue', 'Settled']}
+                        onFilterChange={(filter) => setActiveFilter(filter as FilterType)}
+                        activeFilter={activeFilter}
+                    />
+
+                    {/* Error Message */}
+                    {error && (
+                        <View style={styles.errorContainer}>
+                            <Text style={styles.errorText}>{error}</Text>
+                            <TouchableOpacity onPress={fetchLedgers}>
+                                <Text style={styles.retryText}>Tap to retry</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {/* Loading State */}
+                    {loading && (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color={Colors.light.primaryMuted} />
+                        </View>
+                    )}
 
                     {/* Section Title */}
-                    <Text style={styles.sectionTitle}>Recent Entries</Text>
+                    {!loading && !error && (
+                        <Text style={styles.sectionTitle}>Recent Entries</Text>
+                    )}
 
                     {/* Debt Entries */}
-                    <DebtEntryCard
-                        name="Sarah Jenkins"
-                        statusLabel="Active"
-                        statusType="active"
-                        type="lent"
-                        amount="$450.00"
-                        onRecordPayment={() => router.push('/modal')}
-                    />
+                    {!loading && !error && ledgers.map(renderLedger)}
 
-                    <DebtEntryCard
-                        name="Mike Ross"
-                        statusLabel="Overdue by 5 days"
-                        statusType="overdue"
-                        type="borrowed"
-                        amount="$1,200.00"
-                        onSettleUp={() => router.push('/modal')}
-                    />
-
-                    <DebtEntryCard
-                        name="John Doe"
-                        statusLabel="Active"
-                        statusType="active"
-                        type="lent"
-                        description="Dinner Split"
-                        amount="$42.50"
-                        onRecordPayment={() => router.push('/modal')}
-                    />
-
-                    <DebtEntryCard
-                        name="Emily Chen"
-                        statusLabel="Active"
-                        statusType="active"
-                        type="borrowed"
-                        description="Project Freelance"
-                        amount="$2,500.00"
-                        onSettleUp={() => router.push('/modal')}
-                    />
+                    {/* Empty State */}
+                    {!loading && !error && ledgers.length === 0 && (
+                        <View style={styles.emptyContainer}>
+                            <MaterialIcons name="inbox" size={48} color={Colors.light.textMuted} />
+                            <Text style={styles.emptyText}>No ledgers found</Text>
+                            <Text style={styles.emptySubtext}>Create your first ledger to get started</Text>
+                        </View>
+                    )}
                 </ScrollView>
 
                 {/* FAB */}
@@ -168,5 +249,41 @@ const styles = StyleSheet.create({
         color: Colors.light.text,
         marginTop: Spacing.lg,
         marginBottom: Spacing.md,
+    },
+    errorContainer: {
+        backgroundColor: Colors.light.error + '15',
+        padding: Spacing.lg,
+        borderRadius: BorderRadius.lg,
+        marginTop: Spacing.md,
+        alignItems: 'center',
+    },
+    errorText: {
+        color: Colors.light.error,
+        fontSize: FontSize.md,
+    },
+    retryText: {
+        color: Colors.light.error,
+        fontSize: FontSize.sm,
+        marginTop: Spacing.xs,
+        textDecorationLine: 'underline',
+    },
+    loadingContainer: {
+        padding: Spacing.xxxl,
+        alignItems: 'center',
+    },
+    emptyContainer: {
+        padding: Spacing.xxxl,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: FontSize.lg,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.text,
+        marginTop: Spacing.md,
+    },
+    emptySubtext: {
+        fontSize: FontSize.md,
+        color: Colors.light.textMuted,
+        marginTop: Spacing.xs,
     },
 });
