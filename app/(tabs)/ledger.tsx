@@ -1,12 +1,12 @@
 import { DebtEntryCard } from '@/components/debt-entry-card';
 import { FABButton } from '@/components/fab-button';
 import { FilterPills } from '@/components/filter-pills';
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getLedgers, Ledger } from '@/services/ledgerService';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, ActivityIndicator, Modal, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type FilterType = 'All' | 'Lent' | 'Borrowed' | 'Overdue' | 'Settled';
@@ -19,6 +19,9 @@ export default function LedgerScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+    const [showDateFilter, setShowDateFilter] = useState(false);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     const fetchLedgers = useCallback(async () => {
         try {
@@ -28,6 +31,8 @@ export default function LedgerScreen() {
             if (activeFilter === 'Lent') filters.type = 'owes_me';
             if (activeFilter === 'Borrowed') filters.type = 'i_owe';
             if (searchText) filters.search = searchText;
+            if (dateFrom) filters.dueDateFrom = dateFrom;
+            if (dateTo) filters.dueDateTo = dateTo;
             
             const response = await getLedgers(filters as any);
             setLedgers(response.ledgers || []);
@@ -38,7 +43,7 @@ export default function LedgerScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [activeFilter, searchText]);
+    }, [activeFilter, searchText, dateFrom, dateTo]);
 
     useEffect(() => {
         fetchLedgers();
@@ -134,11 +139,36 @@ export default function LedgerScreen() {
                     </View>
 
                     {/* Filter Pills */}
-                    <FilterPills 
-                        filters={['All', 'Lent', 'Borrowed', 'Overdue', 'Settled']}
-                        onFilterChange={(filter) => setActiveFilter(filter as FilterType)}
-                        activeFilter={activeFilter}
-                    />
+                    <View style={styles.filterRow}>
+                        <FilterPills 
+                            filters={['All', 'Lent', 'Borrowed', 'Overdue', 'Settled']}
+                            onFilterChange={(filter) => setActiveFilter(filter as FilterType)}
+                        />
+                        <TouchableOpacity 
+                            style={[styles.dateFilterBtn, (dateFrom || dateTo) && styles.dateFilterBtnActive]} 
+                            onPress={() => setShowDateFilter(true)}
+                        >
+                            <MaterialIcons 
+                                name="date-range" 
+                                size={18} 
+                                color={(dateFrom || dateTo) ? Colors.light.textInverse : Colors.light.textSecondary} 
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Active Date Filter */}
+                    {(dateFrom || dateTo) && (
+                        <View style={styles.activeDateFilter}>
+                            <Text style={styles.activeDateFilterText}>
+                                {dateFrom && `From: ${dateFrom}`}
+                                {dateFrom && dateTo && ' - '}
+                                {dateTo && `To: ${dateTo}`}
+                            </Text>
+                            <TouchableOpacity onPress={() => { setDateFrom(''); setDateTo(''); }}>
+                                <MaterialIcons name="close" size={18} color={Colors.light.error} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
                     {/* Error Message */}
                     {error && (
@@ -180,6 +210,64 @@ export default function LedgerScreen() {
                     onPress={() => router.push('/modal')}
                     backgroundColor={Colors.light.primaryMuted}
                 />
+
+                {/* Date Filter Modal */}
+                <Modal
+                    visible={showDateFilter}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowDateFilter(false)}
+                >
+                    <Pressable style={styles.dateModalOverlay} onPress={() => setShowDateFilter(false)}>
+                        <Pressable style={[styles.dateModalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
+                            <View style={styles.dateModalHeader}>
+                                <Text style={styles.dateModalTitle}>Filter by Due Date</Text>
+                                <TouchableOpacity onPress={() => setShowDateFilter(false)}>
+                                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.dateModalBody}>
+                                <View style={styles.dateInputGroup}>
+                                    <Text style={styles.dateLabel}>From Date</Text>
+                                    <TextInput
+                                        style={[styles.dateInput, Shadow.sm]}
+                                        placeholder="YYYY-MM-DD"
+                                        placeholderTextColor={Colors.light.textMuted}
+                                        value={dateFrom}
+                                        onChangeText={setDateFrom}
+                                    />
+                                </View>
+
+                                <View style={styles.dateInputGroup}>
+                                    <Text style={styles.dateLabel}>To Date</Text>
+                                    <TextInput
+                                        style={[styles.dateInput, Shadow.sm]}
+                                        placeholder="YYYY-MM-DD"
+                                        placeholderTextColor={Colors.light.textMuted}
+                                        value={dateTo}
+                                        onChangeText={setDateTo}
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.dateModalActions}>
+                                <TouchableOpacity
+                                    style={styles.dateClearBtn}
+                                    onPress={() => { setDateFrom(''); setDateTo(''); }}
+                                >
+                                    <Text style={styles.dateClearText}>Clear</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.dateApplyBtn}
+                                    onPress={() => setShowDateFilter(false)}
+                                >
+                                    <Text style={styles.dateApplyText}>Apply</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
             </View>
         </SafeAreaView>
     );
@@ -285,5 +373,114 @@ const styles = StyleSheet.create({
         fontSize: FontSize.md,
         color: Colors.light.textMuted,
         marginTop: Spacing.xs,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    dateFilterBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: BorderRadius.full,
+        backgroundColor: Colors.light.surface,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    dateFilterBtnActive: {
+        backgroundColor: Colors.light.primary,
+        borderColor: Colors.light.primary,
+    },
+    activeDateFilter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Colors.light.primary + '15',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.md,
+        marginBottom: Spacing.md,
+    },
+    activeDateFilterText: {
+        fontSize: FontSize.sm,
+        color: Colors.light.primary,
+        fontWeight: FontWeight.medium,
+    },
+    dateModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    dateModalContent: {
+        backgroundColor: Colors.light.surface,
+        borderTopLeftRadius: BorderRadius.xxl,
+        borderTopRightRadius: BorderRadius.xxl,
+        paddingBottom: Spacing.xxxl,
+    },
+    dateModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: Spacing.xl,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.light.border,
+    },
+    dateModalTitle: {
+        fontSize: FontSize.xl,
+        fontWeight: FontWeight.bold,
+        color: Colors.light.text,
+    },
+    dateModalBody: {
+        padding: Spacing.xl,
+    },
+    dateInputGroup: {
+        marginBottom: Spacing.lg,
+    },
+    dateLabel: {
+        fontSize: FontSize.sm,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.textSecondary,
+        marginBottom: Spacing.sm,
+    },
+    dateInput: {
+        backgroundColor: Colors.light.surface,
+        borderRadius: BorderRadius.lg,
+        padding: Spacing.lg,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        fontSize: FontSize.md,
+        color: Colors.light.text,
+    },
+    dateModalActions: {
+        flexDirection: 'row',
+        paddingHorizontal: Spacing.xl,
+        gap: Spacing.md,
+    },
+    dateClearBtn: {
+        flex: 1,
+        paddingVertical: Spacing.md,
+        borderRadius: BorderRadius.lg,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        alignItems: 'center',
+    },
+    dateClearText: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.textSecondary,
+    },
+    dateApplyBtn: {
+        flex: 1,
+        paddingVertical: Spacing.md,
+        borderRadius: BorderRadius.lg,
+        backgroundColor: Colors.light.primary,
+        alignItems: 'center',
+    },
+    dateApplyText: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.textInverse,
     },
 });

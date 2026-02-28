@@ -1,6 +1,6 @@
 import { StaffCard } from '@/components/staff-card';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
-import { getUsers, updateUserPermissions, User, UserPermissions } from '@/services/usersService';
+import { getUsers, updateUserPermissions, updateUserStatus, User, UserPermissions } from '@/services/usersService';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -36,6 +36,7 @@ export default function StaffScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [permissionModalVisible, setPermissionModalVisible] = useState(false);
   const [tempPermissions, setTempPermissions] = useState<UserPermissions | null>(null);
+  const [tempActive, setTempActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const canManageStaff = currentUser?.permissions?.canManageStaff ?? false;
@@ -69,6 +70,7 @@ export default function StaffScreen() {
     }
     setSelectedUser(user);
     setTempPermissions({ ...user.permissions });
+    setTempActive(user.active);
     setPermissionModalVisible(true);
   };
 
@@ -78,12 +80,17 @@ export default function StaffScreen() {
     setSaving(true);
     try {
       await updateUserPermissions(selectedUser._id, { permissions: tempPermissions });
+      
+      if (selectedUser.active !== tempActive) {
+        await updateUserStatus(selectedUser._id, tempActive);
+      }
+      
       await fetchUsers();
       await refreshUser();
       setPermissionModalVisible(false);
-      Alert.alert('Success', 'Permissions updated successfully');
+      Alert.alert('Success', 'User updated successfully');
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to update permissions');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to update user');
     } finally {
       setSaving(false);
     }
@@ -137,7 +144,7 @@ export default function StaffScreen() {
           <View style={styles.intro}>
             <Text style={styles.introTitle}>Manage Your Team</Text>
             <Text style={styles.introDesc}>
-              Control who has access to your store's data and track their daily activities.
+              Control who has access to your store&apos;s data and track their daily activities.
             </Text>
           </View>
 
@@ -214,6 +221,32 @@ export default function StaffScreen() {
               <Text style={styles.modalSubtitle}>
                 {selectedUser?.role ? selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1) : ''}
               </Text>
+
+              {/* Active Status Toggle */}
+              <View style={styles.activeStatusRow}>
+                <View style={styles.activeStatusInfo}>
+                  <MaterialIcons 
+                    name={tempActive ? 'check-circle' : 'cancel'} 
+                    size={24} 
+                    color={tempActive ? Colors.light.accent : Colors.light.error} 
+                  />
+                  <View style={styles.activeStatusText}>
+                    <Text style={styles.activeStatusLabel}>
+                      {tempActive ? 'Active' : 'Inactive'}
+                    </Text>
+                    <Text style={styles.activeStatusDesc}>
+                      {tempActive ? 'User can access the app' : 'User cannot access the app'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={tempActive}
+                  onValueChange={setTempActive}
+                  trackColor={{ false: Colors.light.error + '60', true: Colors.light.accent + '60' }}
+                  thumbColor={tempActive ? Colors.light.accent : Colors.light.error}
+                  disabled={selectedUser?.role === 'owner' || saving}
+                />
+              </View>
 
               <ScrollView style={styles.permissionsList}>
                 {PERMISSIONS_LIST.map((perm) => (
@@ -448,5 +481,35 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     fontWeight: FontWeight.semibold,
     color: Colors.light.textInverse,
+  },
+  activeStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.light.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  activeStatusInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+  },
+  activeStatusText: {
+    flex: 1,
+  },
+  activeStatusLabel: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.text,
+  },
+  activeStatusDesc: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textMuted,
+    marginTop: 2,
   },
 });

@@ -55,7 +55,7 @@ function generateUUID(): string {
 
 function getQueue(): SyncOperation[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = globalThis.localStorage?.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
@@ -64,7 +64,7 @@ function getQueue(): SyncOperation[] {
 
 function saveQueue(queue: SyncOperation[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(queue));
   } catch (error) {
     console.error('Failed to save offline queue:', error);
   }
@@ -200,9 +200,7 @@ function getBaseUrl(): string {
 }
 
 export function onNetworkRestore(callback: () => void): () => void {
-  if (typeof window !== 'undefined') {
-    window.addEventListener('online', callback);
-    return () => window.removeEventListener('online', callback);
-  }
+  // This function is deprecated - use useNetwork hook instead
+  // Kept for backward compatibility but returns no-op
   return () => {};
 }

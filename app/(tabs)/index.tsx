@@ -4,16 +4,19 @@ import { SummaryCard } from '@/components/summary-card';
 import { TransactionItem } from '@/components/transaction-item';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getDashboardSummary, DashboardLedger } from '@/services/dashboardService';
+import { getQueueLength, flushQueue } from '@/services/syncService';
+import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, ToastAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isOffline } = useNetwork();
   const [summary, setSummary] = useState<{
     totalOwedToMe: number;
     totalIOwe: number;
@@ -24,22 +27,73 @@ export default function DashboardScreen() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    setIsOnline(!isOffline);
+  }, [isOffline]);
+
+  const showToast = (message: string) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      Alert.alert('', message);
+    }
+  };
+
+  const syncPendingOperations = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const result = await flushQueue();
+      if (result.processedCount > 0) {
+        showToast(`Synced ${result.processedCount} pending operation(s)`);
+      }
+    } catch (error) {
+      console.error('Sync failed:', error);
+    } finally {
+      setSyncing(false);
+      setPendingCount(getQueueLength());
+    }
+  }, [syncing]);
+
+  useEffect(() => {
+    if (isOnline && getQueueLength() > 0) {
+      syncPendingOperations();
+    }
+  }, [isOnline, syncPendingOperations]);
+
+  useEffect(() => {
+    const checkPending = () => {
+      setPendingCount(getQueueLength());
+    };
+    checkPending();
+  }, []);
 
   const fetchSummary = useCallback(async () => {
+    // Don't fetch if not authenticated
+    if (!isAuthenticated) return;
+    
     try {
       const data = await getDashboardSummary();
       setSummary(data);
+      setPendingCount(getQueueLength());
     } catch (error) {
-      console.error('Error fetching dashboard:', error);
+      // Silently handle auth errors - will redirect to login
+      console.log('Dashboard fetch skipped - not authenticated');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
+    if (!authLoading) {
+      fetchSummary();
+    }
+  }, [fetchSummary, authLoading]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -65,7 +119,7 @@ export default function DashboardScreen() {
     );
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -73,6 +127,11 @@ export default function DashboardScreen() {
         </View>
       </SafeAreaView>
     );
+  }
+
+  // Don't render dashboard content if not authenticated
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
@@ -91,10 +150,42 @@ export default function DashboardScreen() {
               <Text style={styles.ownerName}>{user?.name || 'Owner'}</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
-            <MaterialIcons name="notifications-none" size={24} color={Colors.light.text} />
-            {summary && summary.overdueCount > 0 && <View style={styles.notifDot} />}
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            {/* Sync Status Indicator */}
+            {pendingCount > 0 && (
+              <TouchableOpacity
+                style={styles.syncBadge}
+                onPress={syncPendingOperations}
+                disabled={syncing || !isOnline}
+                activeOpacity={0.7}
+              >
+                {syncing ? (
+                  <ActivityIndicator size="small" color={Colors.light.warning} />
+                ) : (
+                  <>
+                    <MaterialIcons name="cloud-upload" size={16} color={Colors.light.warning} />
+                    <Text style={styles.syncBadgeText}>{pendingCount}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+            {!isOnline && (
+              <View style={styles.offlineBadge}>
+                <MaterialIcons name="cloud-off" size={18} color={Colors.light.error} />
+              </View>
+            )}
+            <TouchableOpacity style={styles.notifBtn} activeOpacity={0.7}>
+              <MaterialIcons name="notifications-none" size={24} color={Colors.light.text} />
+              {summary && summary.overdueCount > 0 && <View style={styles.notifDot} />}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.notifBtn} 
+              activeOpacity={0.7}
+              onPress={() => router.push('/settings')}
+            >
+              <MaterialIcons name="settings" size={24} color={Colors.light.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -221,6 +312,30 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
     color: Colors.light.text,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  syncBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.light.warning + '20',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  syncBadgeText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.warning,
+  },
+  offlineBadge: {
+    backgroundColor: Colors.light.error + '15',
+    padding: Spacing.xs,
+    borderRadius: BorderRadius.full,
   },
   notifBtn: {
     width: 44,

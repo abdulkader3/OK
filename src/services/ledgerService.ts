@@ -99,3 +99,20 @@ export async function deleteLedger(id: string): Promise<void> {
     throw new Error(response.message || 'Failed to delete ledger');
   }
 }
+
+export interface UpdateLedgerData {
+  counterpartyName?: string;
+  counterpartyContact?: string;
+  dueDate?: string;
+  priority?: 'low' | 'medium' | 'high';
+  notes?: string;
+  tags?: string[];
+}
+
+export async function updateLedger(id: string, data: UpdateLedgerData): Promise<Ledger> {
+  const response = await apiClient.patch<{ ledger: Ledger }>(`/api/ledgers/${id}`, data);
+  if (response.success && response.data?.ledger) {
+    return response.data.ledger;
+  }
+  throw new Error(response.message || 'Failed to update ledger');
+}

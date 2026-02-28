@@ -65,3 +65,13 @@ export async function updateUserPermissions(
   }
   throw new Error(response.message || 'Failed to update permissions');
 }
+
+export async function updateUserStatus(userId: string, active: boolean): Promise<void> {
+  const response = await apiClient.patch<{ user: User }>(
+    `/api/users/${userId}`,
+    { active }
+  );
+  if (!response.success) {
+    throw new Error(response.message || 'Failed to update user status');
+  }
+}

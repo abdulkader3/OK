@@ -42,7 +42,8 @@ class ApiClient {
 
     if (!response.ok) {
       if (response.status === 401) {
-        console.warn('Unauthorized - cookies may have expired');
+        // Silent fail - user is not authenticated, don't log warning
+        throw new Error('Authentication required');
       }
       throw new Error(data.message || `HTTP ${response.status}`);
     }
