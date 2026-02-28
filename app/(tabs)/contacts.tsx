@@ -1,144 +1,435 @@
-import { TransactionItem } from '@/components/transaction-item';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
+import { Contact, contactsApi, ContactBalance } from '@/src/services/contacts';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function ContactProfileScreen() {
+export default function ContactsScreen() {
     const router = useRouter();
+    
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [searchText, setSearchText] = useState('');
+    const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    const fetchContacts = useCallback(async () => {
+        try {
+            setError(null);
+            const response = await contactsApi.getAll({
+                search: searchText || undefined,
+            });
+            
+            if (response.success && response.data) {
+                setContacts(response.data.contacts || []);
+            } else {
+                setError(response.message || 'Failed to load contacts');
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load contacts');
+            console.error('Error fetching contacts:', err);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [searchText]);
+
+    useEffect(() => {
+        fetchContacts();
+    }, [fetchContacts]);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchContacts();
+    }, [fetchContacts]);
+
+    const fetchContactDetail = async (contactId: string) => {
+        setDetailLoading(true);
+        try {
+            const response = await contactsApi.getById(contactId);
+            if (response.success && response.data) {
+                setSelectedContact(response.data.contact);
+                setShowDetailModal(true);
+            }
+        } catch (err) {
+            console.error('Error fetching contact detail:', err);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    const handleContactPress = (contact: Contact) => {
+        fetchContactDetail(contact._id);
+    };
+
+    const formatBalance = (balance: ContactBalance | undefined) => {
+        if (!balance) return '$0.00';
+        const amount = balance.netBalance;
+        const prefix = amount >= 0 ? '+' : '-';
+        return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+    };
+
+    const getBalanceColor = (balance: ContactBalance | undefined) => {
+        if (!balance) return Colors.light.textSecondary;
+        return balance.netBalance >= 0 ? Colors.light.accentTeal : Colors.light.accentOrange;
+    };
+
+    const getInitials = (name: string) => {
+        return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    };
+
+    const renderContact = ({ item }: { item: Contact }) => (
+        <TouchableOpacity 
+            style={[styles.contactCard, Shadow.sm]} 
+            activeOpacity={0.9}
+            onPress={() => handleContactPress(item)}
+        >
+            <View style={styles.contactHeader}>
+                <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+                </View>
+                <View style={styles.contactInfo}>
+                    <Text style={styles.contactName}>{item.name}</Text>
+                    {item.phone && (
+                        <Text style={styles.contactPhone}>{item.phone}</Text>
+                    )}
+                    {item.email && (
+                        <Text style={styles.contactEmail}>{item.email}</Text>
+                    )}
+                </View>
+                <View style={styles.balanceContainer}>
+                    <Text style={[styles.balanceAmount, { color: getBalanceColor(item.balance) }]}>
+                        {formatBalance(item.balance)}
+                    </Text>
+                    {item.balance && item.balance.ledgerCount !== undefined && (
+                        <Text style={styles.ledgerCount}>
+                            {item.balance.ledgerCount} ledger{item.balance.ledgerCount !== 1 ? 's' : ''}
+                        </Text>
+                    )}
+                </View>
+            </View>
+            {item.tags && item.tags.length > 0 && (
+                <View style={styles.tagsRow}>
+                    {item.tags.slice(0, 3).map((tag, index) => (
+                        <View key={index} style={styles.tag}>
+                            <Text style={styles.tagText}>{tag}</Text>
+                        </View>
+                    ))}
+                    {item.tags.length > 3 && (
+                        <Text style={styles.moreTagsText}>+{item.tags.length - 3} more</Text>
+                    )}
+                </View>
+            )}
+        </TouchableOpacity>
+    );
+
+    const renderEmpty = () => (
+        <View style={styles.emptyContainer}>
+            <MaterialIcons name="group" size={64} color={Colors.light.textMuted} />
+            <Text style={styles.emptyTitle}>No contacts yet</Text>
+            <Text style={styles.emptySubtitle}>
+                {searchText ? 'No contacts match your search' : 'Add your first contact to get started'}
+            </Text>
+        </View>
+    );
+
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.light.primary} />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
             <View style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity activeOpacity={0.7}>
-                        <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Contact Profile</Text>
-                    <TouchableOpacity activeOpacity={0.7}>
-                        <MaterialIcons name="more-vert" size={24} color={Colors.light.text} />
+                    <Text style={styles.headerTitle}>Contacts</Text>
+                    <TouchableOpacity 
+                        activeOpacity={0.7}
+                        onPress={() => router.push('/modal')}
+                    >
+                        <MaterialIcons name="add" size={24} color={Colors.light.primary} />
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView
+                {/* Search */}
+                <View style={styles.searchContainer}>
+                    <MaterialIcons name="search" size={20} color={Colors.light.textMuted} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search contacts..."
+                        placeholderTextColor={Colors.light.textMuted}
+                        value={searchText}
+                        onChangeText={setSearchText}
+                    />
+                    {searchText.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearchText('')}>
+                            <MaterialIcons name="close" size={20} color={Colors.light.textMuted} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Error Message */}
+                {error && (
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>{error}</Text>
+                        <TouchableOpacity onPress={fetchContacts}>
+                            <Text style={styles.retryText}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Contacts List */}
+                <FlatList
+                    data={contacts}
+                    renderItem={renderContact}
+                    keyExtractor={(item) => item._id}
+                    contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scrollContent}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[Colors.light.primary]}
+                            tintColor={Colors.light.primary}
+                        />
+                    }
+                    ListEmptyComponent={renderEmpty}
+                />
+
+                {/* Contact Detail Modal */}
+                <Modal
+                    visible={showDetailModal}
+                    animationType="slide"
+                    presentationStyle="pageSheet"
+                    onRequestClose={() => setShowDetailModal(false)}
                 >
-                    {/* Profile Card */}
-                    <View style={[styles.profileCard, Shadow.sm]}>
-                        <View style={styles.profileAvatar}>
-                            <Text style={styles.profileAvatarText}>JD</Text>
-                        </View>
-                        <Text style={styles.profileName}>John Doe</Text>
-                        <View style={styles.profileMeta}>
+                    <SafeAreaView style={styles.modalSafeArea}>
+                        {detailLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color={Colors.light.primary} />
+                            </View>
+                        ) : selectedContact ? (
+                            <ContactDetailView 
+                                contact={selectedContact as ContactWithDetails} 
+                                onClose={() => setShowDetailModal(false)} 
+                            />
+                        ) : (
+                            <View style={styles.errorContainer}>
+                                <Text style={styles.errorText}>Failed to load contact</Text>
+                                <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                                    <Text style={styles.retryText}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </SafeAreaView>
+                </Modal>
+            </View>
+        </SafeAreaView>
+    );
+}
+
+interface LedgerInfo {
+    _id: string;
+    type: 'owes_me' | 'i_owe';
+    counterpartyName: string;
+    initialAmount: number;
+    outstandingBalance: number;
+    createdAt: string;
+}
+
+type ContactWithDetails = Contact & { balance: ContactBalance; ledgers?: LedgerInfo[] };
+
+function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; onClose: () => void }) {
+    const router = useRouter();
+
+    const getInitials = (name: string) => {
+        return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    };
+
+    const formatBalance = (balance: ContactBalance) => {
+        const amount = balance.netBalance;
+        const prefix = amount >= 0 ? '+' : '-';
+        return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+    };
+
+    return (
+        <View style={styles.detailContainer}>
+            {/* Header */}
+            <View style={styles.detailHeader}>
+                <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                </TouchableOpacity>
+                <Text style={styles.detailHeaderTitle}>Contact Profile</Text>
+                <TouchableOpacity activeOpacity={0.7}>
+                    <MaterialIcons name="more-vert" size={24} color={Colors.light.text} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.detailScrollContent}>
+                {/* Profile Card */}
+                <View style={[styles.profileCard, Shadow.sm]}>
+                    <View style={styles.profileAvatar}>
+                        <Text style={styles.profileAvatarText}>{getInitials(contact.name)}</Text>
+                    </View>
+                    <Text style={styles.profileName}>{contact.name}</Text>
+                    <View style={styles.profileMeta}>
+                        {contact.phone && (
                             <View style={styles.metaItem}>
                                 <MaterialIcons name="phone" size={14} color={Colors.light.textSecondary} />
-                                <Text style={styles.metaText}>+1 234 567 890</Text>
+                                <Text style={styles.metaText}>{contact.phone}</Text>
                             </View>
+                        )}
+                        {contact.email && (
                             <View style={styles.metaItem}>
-                                <MaterialIcons name="badge" size={14} color={Colors.light.textSecondary} />
-                                <Text style={styles.metaText}>ID: CNT-00451</Text>
+                                <MaterialIcons name="email" size={14} color={Colors.light.textSecondary} />
+                                <Text style={styles.metaText}>{contact.email}</Text>
                             </View>
-                        </View>
-                        <View style={styles.contactActions}>
+                        )}
+                        {contact.address && (
+                            <View style={styles.metaItem}>
+                                <MaterialIcons name="location-on" size={14} color={Colors.light.textSecondary} />
+                                <Text style={styles.metaText}>{contact.address}</Text>
+                            </View>
+                        )}
+                    </View>
+                    <View style={styles.contactActions}>
+                        {contact.phone && (
                             <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7}>
                                 <MaterialIcons name="phone" size={18} color={Colors.light.primary} />
                                 <Text style={styles.contactActionText}>Call</Text>
                             </TouchableOpacity>
+                        )}
+                        {contact.email && (
                             <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7}>
                                 <MaterialIcons name="message" size={18} color={Colors.light.primary} />
                                 <Text style={styles.contactActionText}>Message</Text>
                             </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+
+                {/* Balance Card */}
+                <View style={[styles.balanceCard, Shadow.md]}>
+                    <Text style={styles.balanceLabel}>NET BALANCE</Text>
+                    <Text style={styles.balanceAmountDetail}>
+                        {formatBalance(contact.balance)}
+                    </Text>
+                    {contact.balance && (
+                        <View style={styles.balanceDetailsRow}>
+                            <View style={styles.balanceDetailItem}>
+                                <Text style={styles.balanceDetailLabel}>Owes Me</Text>
+                                <Text style={[styles.balanceDetailValue, { color: Colors.light.accentTeal }]}>
+                                    ${contact.balance.totalOwesMe.toFixed(2)}
+                                </Text>
+                            </View>
+                            <View style={styles.balanceDetailItem}>
+                                <Text style={styles.balanceDetailLabel}>I Owe</Text>
+                                <Text style={[styles.balanceDetailValue, { color: Colors.light.accentOrange }]}>
+                                    ${contact.balance.totalIOwe.toFixed(2)}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
-
-                    {/* Balance Card */}
-                    <View style={[styles.balanceCard, Shadow.md]}>
-                        <Text style={styles.balanceLabel}>NET BALANCE</Text>
-                        <Text style={styles.balanceAmount}>$150.00</Text>
-                        <TouchableOpacity style={styles.settleUpBtn} activeOpacity={0.7}>
-                            <Text style={styles.settleUpText}>Settle Up</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Attachments */}
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Attachments</Text>
-                        <TouchableOpacity activeOpacity={0.7}>
-                            <MaterialIcons name="add" size={22} color={Colors.light.primaryMuted} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.attachmentsRow}
-                    >
-                        {['Receipt.pdf', 'Contract.doc', 'Invoice.pdf'].map((file, i) => (
-                            <TouchableOpacity key={i} style={[styles.attachmentCard, Shadow.sm]} activeOpacity={0.7}>
-                                <MaterialIcons
-                                    name={file.includes('.pdf') ? 'picture-as-pdf' : 'description'}
-                                    size={28}
-                                    color={Colors.light.primaryMuted}
-                                />
-                                <Text style={styles.attachmentName} numberOfLines={1}>{file}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-
-                    {/* History */}
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>History</Text>
-                        <View style={styles.historyBadge}>
-                            <Text style={styles.historyBadgeText}>3</Text>
-                        </View>
-                    </View>
-
-                    <TransactionItem
-                        name="Loan"
-                        description="Loan to John"
-                        time="Oct 24 • 2:30 PM"
-                        amount="$50.00"
-                        isPositive={false}
-                        avatarColor={Colors.light.accentOrange}
-                    />
-                    <TransactionItem
-                        name="Payment"
-                        description="Payment Received"
-                        time="Oct 20 • 9:15 AM"
-                        amount="$200.00"
-                        isPositive={true}
-                        avatarColor={Colors.light.accent}
-                    />
-                    <TransactionItem
-                        name="Groceries"
-                        description="Groceries"
-                        time="Oct 18 • 5:45 PM"
-                        amount="$120.50"
-                        isPositive={false}
-                        avatarColor={Colors.light.accentRed}
-                    />
-                </ScrollView>
-
-                {/* Bottom Action Buttons */}
-                <View style={[styles.bottomActions, Shadow.lg]}>
-                    <TouchableOpacity
-                        style={styles.bottomBtnPrimary}
-                        onPress={() => router.push('/modal')}
-                        activeOpacity={0.7}
-                    >
-                        <MaterialIcons name="payment" size={20} color={Colors.light.textInverse} />
-                        <Text style={styles.bottomBtnPrimaryText}>Record Payment</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.bottomBtnSecondary} activeOpacity={0.7}>
-                        <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.primary} />
-                        <Text style={styles.bottomBtnSecondaryText}>New Entry</Text>
+                    )}
+                    <TouchableOpacity style={styles.settleUpBtn} activeOpacity={0.7}>
+                        <Text style={styles.settleUpText}>Settle Up</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Notes */}
+                {contact.notes && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Notes</Text>
+                        <View style={[styles.notesCard, Shadow.sm]}>
+                            <Text style={styles.notesText}>{contact.notes}</Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* Tags */}
+                {contact.tags && contact.tags.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Tags</Text>
+                        <View style={styles.tagsContainer}>
+                            {contact.tags.map((tag, index) => (
+                                <View key={index} style={styles.detailTag}>
+                                    <Text style={styles.detailTagText}>{tag}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                {/* Ledgers */}
+                {contact.ledgers && contact.ledgers.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Ledgers</Text>
+                        {contact.ledgers.map((ledger) => (
+                            <TouchableOpacity 
+                                key={ledger._id} 
+                                style={[styles.ledgerCard, Shadow.sm]} 
+                                activeOpacity={0.9}
+                                onPress={() => {
+                                    onClose();
+                                    router.push({ pathname: '/ledger/[id]', params: { id: ledger._id } });
+                                }}
+                            >
+                                <View style={styles.ledgerHeader}>
+                                    <View style={[
+                                        styles.ledgerTypeBadge, 
+                                        { backgroundColor: ledger.type === 'owes_me' ? Colors.light.accentTeal + '20' : Colors.light.accentOrange + '20' }
+                                    ]}>
+                                        <MaterialIcons 
+                                            name={ledger.type === 'owes_me' ? 'arrow-upward' : 'arrow-downward'} 
+                                            size={14} 
+                                            color={ledger.type === 'owes_me' ? Colors.light.accentTeal : Colors.light.accentOrange} 
+                                        />
+                                        <Text style={[
+                                            styles.ledgerTypeText, 
+                                            { color: ledger.type === 'owes_me' ? Colors.light.accentTeal : Colors.light.accentOrange }
+                                        ]}>
+                                            {ledger.type === 'owes_me' ? 'Owes Me' : 'I Owe'}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.ledgerAmount}>
+                                        ${ledger.outstandingBalance.toFixed(2)}
+                                    </Text>
+                                </View>
+                                <Text style={styles.ledgerInitialAmount}>
+                                    Initial: ${ledger.initialAmount.toFixed(2)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
             </View>
-        </SafeAreaView>
+
+            {/* Bottom Actions */}
+            <View style={[styles.bottomActions, Shadow.lg]}>
+                <TouchableOpacity
+                    style={styles.bottomBtnPrimary}
+                    onPress={() => router.push({ pathname: '/modal', params: { contactId: contact._id } })}
+                    activeOpacity={0.7}
+                >
+                    <MaterialIcons name="payment" size={20} color={Colors.light.textInverse} />
+                    <Text style={styles.bottomBtnPrimaryText}>Record Payment</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.bottomBtnSecondary} activeOpacity={0.7}>
+                    <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.primary} />
+                    <Text style={styles.bottomBtnSecondaryText}>New Entry</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 }
 
@@ -151,6 +442,11 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.light.background,
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -159,11 +455,166 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.lg,
     },
     headerTitle: {
+        fontSize: FontSize.xxl,
+        fontWeight: FontWeight.bold,
+        color: Colors.light.text,
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.light.surface,
+        marginHorizontal: Spacing.xl,
+        marginBottom: Spacing.md,
+        paddingHorizontal: Spacing.md,
+        borderRadius: BorderRadius.md,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
+        fontSize: FontSize.md,
+        color: Colors.light.text,
+    },
+    errorContainer: {
+        marginHorizontal: Spacing.xl,
+        marginBottom: Spacing.md,
+        padding: Spacing.md,
+        backgroundColor: Colors.light.error + '15',
+        borderRadius: BorderRadius.md,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    errorText: {
+        color: Colors.light.error,
+        fontSize: FontSize.sm,
+    },
+    retryText: {
+        color: Colors.light.primary,
+        fontSize: FontSize.sm,
+        fontWeight: FontWeight.semibold,
+    },
+    listContent: {
+        paddingHorizontal: Spacing.xl,
+        paddingBottom: 100,
+    },
+    contactCard: {
+        backgroundColor: Colors.light.surface,
+        borderRadius: BorderRadius.lg,
+        padding: Spacing.lg,
+        marginBottom: Spacing.md,
+    },
+    contactHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatar: {
+        width: 48,
+        height: 48,
+        borderRadius: BorderRadius.full,
+        backgroundColor: Colors.light.primary + '20',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarText: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.bold,
+        color: Colors.light.primary,
+    },
+    contactInfo: {
+        flex: 1,
+        marginLeft: Spacing.md,
+    },
+    contactName: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.text,
+    },
+    contactPhone: {
+        fontSize: FontSize.sm,
+        color: Colors.light.textSecondary,
+        marginTop: 2,
+    },
+    contactEmail: {
+        fontSize: FontSize.sm,
+        color: Colors.light.textSecondary,
+        marginTop: 2,
+    },
+    balanceContainer: {
+        alignItems: 'flex-end',
+    },
+    balanceAmount: {
+        fontSize: FontSize.lg,
+        fontWeight: FontWeight.bold,
+    },
+    ledgerCount: {
+        fontSize: FontSize.xs,
+        color: Colors.light.textMuted,
+        marginTop: 2,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: Spacing.sm,
+        gap: Spacing.xs,
+    },
+    tag: {
+        backgroundColor: Colors.light.primary + '15',
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 2,
+        borderRadius: BorderRadius.full,
+    },
+    tagText: {
+        fontSize: FontSize.xs,
+        color: Colors.light.primary,
+    },
+    moreTagsText: {
+        fontSize: FontSize.xs,
+        color: Colors.light.textMuted,
+        alignSelf: 'center',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingTop: 100,
+    },
+    emptyTitle: {
+        fontSize: FontSize.lg,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.text,
+        marginTop: Spacing.md,
+    },
+    emptySubtitle: {
+        fontSize: FontSize.sm,
+        color: Colors.light.textSecondary,
+        marginTop: Spacing.xs,
+        textAlign: 'center',
+    },
+    modalSafeArea: {
+        flex: 1,
+        backgroundColor: Colors.light.background,
+    },
+    detailContainer: {
+        flex: 1,
+        backgroundColor: Colors.light.background,
+    },
+    detailHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.lg,
+    },
+    detailHeaderTitle: {
         fontSize: FontSize.lg,
         fontWeight: FontWeight.semibold,
         color: Colors.light.text,
     },
-    scrollContent: {
+    detailScrollContent: {
+        flex: 1,
         paddingHorizontal: Spacing.xl,
         paddingBottom: 100,
     },
@@ -195,8 +646,8 @@ const styles = StyleSheet.create({
         color: Colors.light.text,
     },
     profileMeta: {
-        flexDirection: 'row',
-        gap: Spacing.lg,
+        alignItems: 'center',
+        gap: Spacing.xs,
         marginTop: 2,
     },
     metaItem: {
@@ -242,10 +693,26 @@ const styles = StyleSheet.create({
         color: Colors.light.textInverse + 'AA',
         letterSpacing: 1.5,
     },
-    balanceAmount: {
+    balanceAmountDetail: {
         fontSize: FontSize.hero,
         fontWeight: FontWeight.heavy,
         color: Colors.light.textInverse,
+    },
+    balanceDetailsRow: {
+        flexDirection: 'row',
+        gap: Spacing.xxl,
+        marginTop: Spacing.sm,
+    },
+    balanceDetailItem: {
+        alignItems: 'center',
+    },
+    balanceDetailLabel: {
+        fontSize: FontSize.xs,
+        color: Colors.light.textInverse + 'AA',
+    },
+    balanceDetailValue: {
+        fontSize: FontSize.md,
+        fontWeight: FontWeight.semibold,
     },
     settleUpBtn: {
         backgroundColor: Colors.light.accent,
@@ -259,47 +726,71 @@ const styles = StyleSheet.create({
         fontWeight: FontWeight.semibold,
         color: Colors.light.textInverse,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: Spacing.md,
+    section: {
+        marginBottom: Spacing.xl,
     },
     sectionTitle: {
         fontSize: FontSize.lg,
         fontWeight: FontWeight.bold,
         color: Colors.light.text,
+        marginBottom: Spacing.md,
     },
-    attachmentsRow: {
-        flexDirection: 'row',
-        gap: Spacing.md,
-        marginBottom: Spacing.xl,
-    },
-    attachmentCard: {
+    notesCard: {
         backgroundColor: Colors.light.surface,
         borderRadius: BorderRadius.md,
         padding: Spacing.lg,
-        alignItems: 'center',
-        gap: Spacing.sm,
-        width: 100,
     },
-    attachmentName: {
+    notesText: {
+        fontSize: FontSize.sm,
+        color: Colors.light.textSecondary,
+    },
+    tagsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+    },
+    detailTag: {
+        backgroundColor: Colors.light.primary + '15',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.full,
+    },
+    detailTagText: {
+        fontSize: FontSize.sm,
+        color: Colors.light.primary,
+    },
+    ledgerCard: {
+        backgroundColor: Colors.light.surface,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.lg,
+        marginBottom: Spacing.sm,
+    },
+    ledgerHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    ledgerTypeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 2,
+        borderRadius: BorderRadius.full,
+        gap: 4,
+    },
+    ledgerTypeText: {
+        fontSize: FontSize.xs,
+        fontWeight: FontWeight.medium,
+    },
+    ledgerAmount: {
+        fontSize: FontSize.lg,
+        fontWeight: FontWeight.bold,
+        color: Colors.light.text,
+    },
+    ledgerInitialAmount: {
         fontSize: FontSize.xs,
         color: Colors.light.textSecondary,
-        textAlign: 'center',
-    },
-    historyBadge: {
-        backgroundColor: Colors.light.primary,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    historyBadgeText: {
-        fontSize: FontSize.xs,
-        fontWeight: FontWeight.bold,
-        color: Colors.light.textInverse,
+        marginTop: Spacing.xs,
     },
     bottomActions: {
         flexDirection: 'row',

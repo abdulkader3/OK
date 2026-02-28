@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { createLedger } from '@/services/ledgerService';
 import { recordPayment, RecordPaymentData } from '@/services/paymentService';
+import { contactsApi } from '@/src/services/contacts';
 import { generateIdempotencyKey } from '@/utils/generateIdempotencyKey';
 import { usePermissions } from '../src/hooks/usePermissions';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -19,17 +20,19 @@ import {
   View,
 } from 'react-native';
 
-type ModalMode = 'payment' | 'create';
+type ModalMode = 'payment' | 'create' | 'contact';
 
 export default function RecordPaymentModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string }>();
+  const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string; contactId?: string }>();
   const { canCreateLedger, canRecordPayment } = usePermissions();
   
   const ledgerId = params.ledgerId;
+  const contactId = params.contactId;
   const outstandingBalance = ledgerId ? parseFloat(params.outstandingBalance || '0') : 0;
   
   const [mode, setMode] = useState<ModalMode>(() => {
+    if (contactId) return 'contact';
     if (ledgerId) return 'payment';
     return canCreateLedger ? 'create' : 'payment';
   });
@@ -62,6 +65,14 @@ export default function RecordPaymentModal() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank' | 'other'>('cash');
   const [note, setNote] = useState('');
   const [receiptAttached, setReceiptAttached] = useState(false);
+
+  // Contact state
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactAddress, setContactAddress] = useState('');
+  const [contactNotes, setContactNotes] = useState('');
+  const [contactTags, setContactTags] = useState('');
 
   const setQuickAmount = (percentage: number) => {
     const value = (outstandingBalance * percentage) / 100;
@@ -145,8 +156,46 @@ export default function RecordPaymentModal() {
     }
   };
 
+  const handleCreateContact = async () => {
+    if (!contactName.trim()) {
+      Alert.alert('Error', 'Please enter a contact name');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const tags = contactTags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
+
+      await contactsApi.create({
+        name: contactName.trim(),
+        email: contactEmail.trim() || undefined,
+        phone: contactPhone.trim() || undefined,
+        address: contactAddress.trim() || undefined,
+        notes: contactNotes.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+      });
+
+      Alert.alert('Success', 'Contact created successfully', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create contact';
+      setError(message);
+      Alert.alert('Error', message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = () => {
-    if (mode === 'create') {
+    if (mode === 'contact') {
+      handleCreateContact();
+    } else if (mode === 'create') {
       handleCreateLedger();
     } else {
       handleRecordPayment();
@@ -164,7 +213,7 @@ export default function RecordPaymentModal() {
       </View>
 
       {/* Mode Toggle (for demo purposes) */}
-      {!ledgerId && (
+      {!ledgerId && !contactId && (
         <View style={styles.modeToggle}>
           <TouchableOpacity
             style={[styles.modeBtn, mode === 'create' && styles.modeBtnActive]}
@@ -182,6 +231,14 @@ export default function RecordPaymentModal() {
               Record Payment
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeBtn, mode === 'contact' && styles.modeBtnActive]}
+            onPress={() => setMode('contact')}
+          >
+            <Text style={[styles.modeBtnText, mode === 'contact' && styles.modeBtnTextActive]}>
+              New Contact
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -191,7 +248,7 @@ export default function RecordPaymentModal() {
       >
         {/* Header */}
         <Text style={styles.title}>
-          {mode === 'create' ? 'Create Ledger' : 'Record Payment'}
+          {mode === 'contact' ? 'New Contact' : mode === 'create' ? 'Create Ledger' : 'Record Payment'}
         </Text>
 
         {mode === 'payment' && outstandingBalance > 0 && (
@@ -444,6 +501,91 @@ export default function RecordPaymentModal() {
           </View>
         )}
 
+        {/* CREATE CONTACT FORM */}
+        {mode === 'contact' && (
+          <>
+            {/* Name */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Name *</Text>
+              <TextInput
+                style={[styles.textInput, Shadow.sm]}
+                placeholder="Enter contact name"
+                placeholderTextColor={Colors.light.textMuted}
+                value={contactName}
+                onChangeText={setContactName}
+                autoCapitalize="words"
+              />
+            </View>
+
+            {/* Email */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={[styles.textInput, Shadow.sm]}
+                placeholder="Enter email address"
+                placeholderTextColor={Colors.light.textMuted}
+                value={contactEmail}
+                onChangeText={setContactEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* Phone */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Phone</Text>
+              <TextInput
+                style={[styles.textInput, Shadow.sm]}
+                placeholder="Enter phone number"
+                placeholderTextColor={Colors.light.textMuted}
+                value={contactPhone}
+                onChangeText={setContactPhone}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            {/* Address */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Address</Text>
+              <TextInput
+                style={[styles.textInput, Shadow.sm]}
+                placeholder="Enter address"
+                placeholderTextColor={Colors.light.textMuted}
+                value={contactAddress}
+                onChangeText={setContactAddress}
+              />
+            </View>
+
+            {/* Notes */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Notes</Text>
+              <TextInput
+                style={[styles.noteInput, Shadow.sm]}
+                placeholder="Add notes about this contact..."
+                placeholderTextColor={Colors.light.textMuted}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                value={contactNotes}
+                onChangeText={setContactNotes}
+              />
+            </View>
+
+            {/* Tags */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Tags</Text>
+              <TextInput
+                style={[styles.textInput, Shadow.sm]}
+                placeholder="friend, work, family (comma separated)"
+                placeholderTextColor={Colors.light.textMuted}
+                value={contactTags}
+                onChangeText={setContactTags}
+                autoCapitalize="none"
+              />
+            </View>
+          </>
+        )}
+
         {/* Submit Button */}
         <TouchableOpacity
           style={[
@@ -461,7 +603,7 @@ export default function RecordPaymentModal() {
             <>
               <MaterialIcons name="check" size={22} color={Colors.light.textInverse} />
               <Text style={styles.confirmBtnText}>
-                {mode === 'create' ? 'Create Ledger' : 'Confirm Payment'}
+                {mode === 'contact' ? 'Create Contact' : mode === 'create' ? 'Create Ledger' : 'Confirm Payment'}
               </Text>
             </>
           )}
@@ -630,6 +772,16 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
     color: Colors.light.text,
     paddingVertical: Spacing.sm,
+  },
+  textInput: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    fontSize: FontSize.md,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   quickAmounts: {
     flexDirection: 'row',
