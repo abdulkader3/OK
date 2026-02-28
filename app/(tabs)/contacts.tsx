@@ -53,7 +53,11 @@ export default function ContactsScreen() {
         try {
             const response = await contactsApi.getById(contactId);
             if (response.success && response.data) {
-                setSelectedContact(response.data.contact);
+                setSelectedContact({
+                    ...response.data.contact,
+                    balance: response.data.balance,
+                    ledgers: response.data.ledgers,
+                } as any);
                 setShowDetailModal(true);
             }
         } catch (err) {
