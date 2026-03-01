@@ -16,10 +16,19 @@ interface RequestOptions extends RequestInit {
 
 class ApiClient {
   private baseUrl: string;
+  private authToken: string | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     console.log('[API] Base URL:', this.baseUrl);
+  }
+
+  setAuthToken(token: string) {
+    this.authToken = token;
+  }
+
+  clearAuthToken() {
+    this.authToken = null;
   }
 
   async checkHealth(): Promise<boolean> {
@@ -47,6 +56,10 @@ class ApiClient {
     const headers: HeadersInit = {
       ...fetchOptions.headers,
     };
+
+    if (this.authToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.authToken}`;
+    }
 
     if (idempotencyKey) {
       (headers as Record<string, string>)['Idempotency-Key'] = idempotencyKey;
@@ -114,14 +127,15 @@ class ApiClient {
   }
 
   async patch<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> {
+    const isFormData = body instanceof FormData;
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      headers: {
+      headers: isFormData ? options?.headers : {
         'Content-Type': 'application/json',
         ...options?.headers,
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
     });
   }
 }

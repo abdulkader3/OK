@@ -3,10 +3,12 @@ import { updateProfile, changePassword } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -30,10 +32,30 @@ export default function SettingsScreen() {
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [company, setCompany] = useState(user?.company || '');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant photo library access to upload a profile image.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!name.trim()) {
@@ -47,9 +69,11 @@ export default function SettingsScreen() {
         name: name.trim(),
         phone: phone.trim() || undefined,
         company: company.trim() || undefined,
+        profileImage: profileImage || undefined,
       });
       await refreshUser();
       setShowEditProfile(false);
+      setProfileImage(null);
       Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to update profile');
@@ -113,11 +137,18 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>Profile</Text>
             <View style={[styles.card, Shadow.sm]}>
               <View style={styles.profileHeader}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
+                {(user as any)?.profileImage?.url ? (
+                  <Image 
+                    source={{ uri: (user as any).profileImage.url }} 
+                    style={styles.profileAvatarImage} 
+                  />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.profileInfo}>
                   <Text style={styles.profileName}>{user?.name}</Text>
                   <Text style={styles.profileEmail}>{user?.email}</Text>
@@ -175,73 +206,100 @@ export default function SettingsScreen() {
           onRequestClose={() => setShowEditProfile(false)}
         >
           <Pressable style={styles.modalOverlay} onPress={() => setShowEditProfile(false)}>
-            <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Edit Profile</Text>
-                <TouchableOpacity onPress={() => setShowEditProfile(false)}>
-                  <MaterialIcons name="close" size={24} color={Colors.light.text} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.modalBody}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Name</Text>
-                    <TextInput
-                      style={[styles.input, Shadow.sm]}
-                      value={name}
-                      onChangeText={setName}
-                      placeholder="Your name"
-                      placeholderTextColor={Colors.light.textMuted}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Phone</Text>
-                    <TextInput
-                      style={[styles.input, Shadow.sm]}
-                      value={phone}
-                      onChangeText={setPhone}
-                      placeholder="+1 234 567 8900"
-                      placeholderTextColor={Colors.light.textMuted}
-                      keyboardType="phone-pad"
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Company</Text>
-                    <TextInput
-                      style={[styles.input, Shadow.sm]}
-                      value={company}
-                      onChangeText={setCompany}
-                      placeholder="Your company"
-                      placeholderTextColor={Colors.light.textMuted}
-                    />
-                  </View>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalKeyboardView}
+            >
+              <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Edit Profile</Text>
+                  <TouchableOpacity onPress={() => setShowEditProfile(false)}>
+                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                  </TouchableOpacity>
                 </View>
-              </ScrollView>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setShowEditProfile(false)}
-                  disabled={saving}
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.modalBodyScroll}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                  onPress={handleSaveProfile}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color={Colors.light.textInverse} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </Pressable>
+                  <View style={styles.modalBody}>
+                    <View style={styles.imagePickerContainer}>
+                      <TouchableOpacity style={styles.imagePickerBtn} onPress={pickImage}>
+                        {profileImage ? (
+                          <Image source={{ uri: profileImage }} style={styles.profileImagePreview} />
+                        ) : (
+                          <View style={styles.imagePickerPlaceholder}>
+                            <MaterialIcons name="add-a-photo" size={32} color={Colors.light.textMuted} />
+                            <Text style={styles.imagePickerText}>Add Photo</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                      {profileImage && (
+                        <TouchableOpacity onPress={() => setProfileImage(null)} style={styles.removeImageBtn}>
+                          <MaterialIcons name="close" size={20} color={Colors.light.text} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Name</Text>
+                      <TextInput
+                        style={[styles.input, Shadow.sm]}
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Your name"
+                        placeholderTextColor={Colors.light.textMuted}
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Phone</Text>
+                      <TextInput
+                        style={[styles.input, Shadow.sm]}
+                        value={phone}
+                        onChangeText={setPhone}
+                        placeholder="+1 234 567 8900"
+                        placeholderTextColor={Colors.light.textMuted}
+                        keyboardType="phone-pad"
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Company</Text>
+                      <TextInput
+                        style={[styles.input, Shadow.sm]}
+                        value={company}
+                        onChangeText={setCompany}
+                        placeholder="Your company"
+                        placeholderTextColor={Colors.light.textMuted}
+                      />
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setShowEditProfile(false)}
+                    disabled={saving}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+                    onPress={handleSaveProfile}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <ActivityIndicator size="small" color={Colors.light.textInverse} />
+                    ) : (
+                      <Text style={styles.saveBtnText}>Save</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </KeyboardAvoidingView>
           </Pressable>
         </Modal>
 
@@ -253,73 +311,84 @@ export default function SettingsScreen() {
           onRequestClose={() => setShowChangePassword(false)}
         >
           <Pressable style={styles.modalOverlay} onPress={() => setShowChangePassword(false)}>
-            <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Change Password</Text>
-                <TouchableOpacity onPress={() => setShowChangePassword(false)}>
-                  <MaterialIcons name="close" size={24} color={Colors.light.text} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.modalBody}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Current Password</Text>
-                  <TextInput
-                    style={[styles.input, Shadow.sm]}
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    placeholder="Enter current password"
-                    placeholderTextColor={Colors.light.textMuted}
-                    secureTextEntry
-                  />
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalKeyboardView}
+            >
+              <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Change Password</Text>
+                  <TouchableOpacity onPress={() => setShowChangePassword(false)}>
+                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>New Password</Text>
-                  <TextInput
-                    style={[styles.input, Shadow.sm]}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="Enter new password"
-                    placeholderTextColor={Colors.light.textMuted}
-                    secureTextEntry
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Confirm Password</Text>
-                  <TextInput
-                    style={[styles.input, Shadow.sm]}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Confirm new password"
-                    placeholderTextColor={Colors.light.textMuted}
-                    secureTextEntry
-                  />
-                </View>
-              </View>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setShowChangePassword(false)}
-                  disabled={saving}
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.modalBodyScroll}
+                  showsVerticalScrollIndicator={false}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                  onPress={handleChangePassword}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color={Colors.light.textInverse} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Change</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </Pressable>
+                  <View style={styles.modalBody}>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Current Password</Text>
+                      <TextInput
+                        style={[styles.input, Shadow.sm]}
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        placeholder="Enter current password"
+                        placeholderTextColor={Colors.light.textMuted}
+                        secureTextEntry
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>New Password</Text>
+                      <TextInput
+                        style={[styles.input, Shadow.sm]}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        placeholder="Enter new password"
+                        placeholderTextColor={Colors.light.textMuted}
+                        secureTextEntry
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Confirm Password</Text>
+                      <TextInput
+                        style={[styles.input, Shadow.sm]}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Confirm new password"
+                        placeholderTextColor={Colors.light.textMuted}
+                        secureTextEntry
+                      />
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setShowChangePassword(false)}
+                    disabled={saving}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+                    onPress={handleChangePassword}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <ActivityIndicator size="small" color={Colors.light.textInverse} />
+                    ) : (
+                      <Text style={styles.saveBtnText}>Change</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </KeyboardAvoidingView>
           </Pressable>
         </Modal>
       </KeyboardAvoidingView>
@@ -334,6 +403,13 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  modalKeyboardView: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBodyScroll: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -383,6 +459,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  profileAvatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: BorderRadius.full,
   },
   avatarText: {
     fontSize: FontSize.xxl,
@@ -472,6 +553,46 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: Spacing.xl,
+  },
+  imagePickerContainer: {
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+    position: 'relative',
+  },
+  imagePickerBtn: {
+    width: 100,
+    height: 100,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.light.background,
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profileImagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: BorderRadius.full,
+  },
+  imagePickerPlaceholder: {
+    alignItems: 'center',
+  },
+  imagePickerText: {
+    fontSize: FontSize.xs,
+    color: Colors.light.textMuted,
+    marginTop: Spacing.xs,
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 0,
+    right: '35%',
+    backgroundColor: Colors.light.surface,
+    borderRadius: BorderRadius.full,
+    padding: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   inputGroup: {
     marginBottom: Spacing.lg,

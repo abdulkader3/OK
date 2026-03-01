@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-// eslint-disable-next-line import/no-named-as-default
+import * as SecureStore from 'expo-secure-store';
 import apiClient from '../services/apiClient';
+
+const TOKEN_KEY = 'access_token';
 
 interface User {
   _id: string;
@@ -53,11 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await apiClient.post<{ user: User }>('/api/auth/login', {
+    const response = await apiClient.post<{ user: User; tokens: { access_token: string } }>('/api/auth/login', {
       email,
       password,
     });
     if (response.success && response.data?.user) {
+      if (response.data.tokens?.access_token) {
+        await SecureStore.setItemAsync(TOKEN_KEY, response.data.tokens.access_token);
+        apiClient.setAuthToken(response.data.tokens.access_token);
+      }
       setUser(response.data.user);
     } else {
       throw new Error(response.message || 'Login failed');
@@ -70,11 +76,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       console.warn('Logout API call failed');
     } finally {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      apiClient.clearAuthToken();
       setUser(null);
     }
   };
 
   useEffect(() => {
+    const loadToken = async () => {
+      try {
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (token) {
+          apiClient.setAuthToken(token);
+        }
+      } catch (e) {
+        console.warn('Failed to load token:', e);
+      }
+    };
+    loadToken();
     refreshUser().finally(() => setIsLoading(false));
   }, []);
 
