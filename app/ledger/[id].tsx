@@ -7,7 +7,9 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -549,7 +551,10 @@ const handleDelete = () => {
         animationType="slide"
         onRequestClose={() => setShowAddDebtModal(false)}
       >
-        <View style={styles.editModalOverlay}>
+        <KeyboardAvoidingView 
+          style={styles.editModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.editModalContainer, Shadow.lg]}>
             <View style={styles.editModalHeader}>
               <Text style={styles.editModalTitle}>Add More Debt</Text>
@@ -558,7 +563,7 @@ const handleDelete = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.editModalContent}>
                 <View style={styles.editInputGroup}>
                   <Text style={styles.editLabel}>Amount</Text>
@@ -608,7 +613,7 @@ const handleDelete = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
