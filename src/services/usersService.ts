@@ -44,6 +44,14 @@ export async function getUsers(): Promise<UsersResponse> {
   throw new Error(response.message || 'Failed to fetch users');
 }
 
+export async function getStaff(): Promise<{ staff: User[]; pagination: UsersResponse['pagination'] }> {
+  const response = await apiClient.get<{ staff: User[]; pagination: UsersResponse['pagination'] }>('/api/staff?limit=50');
+  if (response.success && response.data) {
+    return response.data;
+  }
+  throw new Error(response.message || 'Failed to fetch staff');
+}
+
 export async function getUserById(id: string): Promise<User> {
   const response = await apiClient.get<{ user: User }>(`/api/users/${id}`);
   if (response.success && response.data?.user) {

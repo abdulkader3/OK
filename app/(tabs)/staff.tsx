@@ -1,7 +1,8 @@
 import { StaffCard } from '@/components/staff-card';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
-import { getUsers, updateUserPermissions, updateUserStatus, User, UserPermissions } from '@/services/usersService';
+import { getStaff, updateUserPermissions, updateUserStatus, User, UserPermissions } from '@/services/usersService';
 import { useAuth } from '@/contexts/AuthContext';
+import apiClient from '@/src/services/apiClient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -14,6 +15,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -38,16 +40,26 @@ export default function StaffScreen() {
   const [tempPermissions, setTempPermissions] = useState<UserPermissions | null>(null);
   const [tempActive, setTempActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [addStaffModalVisible, setAddStaffModalVisible] = useState(false);
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    role: 'staff' as 'staff' | 'admin',
+  });
+  const [addingStaff, setAddingStaff] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const canManageStaff = currentUser?.permissions?.canManageStaff ?? false;
   const isOwner = currentUser?.role === 'owner';
 
   const fetchUsers = useCallback(async () => {
     try {
-      const data = await getUsers();
-      setUsers(data.users || []);
+      const data = await getStaff();
+      setUsers(data.staff || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('Error fetching staff:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -95,6 +107,10 @@ export default function StaffScreen() {
       setSaving(false);
     }
   };
+
+  const companyFilter = currentUser?.company || '';
+  
+  const filteredUsers = users.filter(u => u.company === companyFilter);
 
   const getPermissionLabels = (permissions: UserPermissions): string[] => {
     const labels: string[] = [];
@@ -150,7 +166,11 @@ export default function StaffScreen() {
 
           {/* Add Staff Button */}
           {(canManageStaff || isOwner) && (
-            <TouchableOpacity style={[styles.addButton, Shadow.sm]} activeOpacity={0.7}>
+            <TouchableOpacity 
+              style={[styles.addButton, Shadow.sm]} 
+              activeOpacity={0.7}
+              onPress={() => setAddStaffModalVisible(true)}
+            >
               <View style={styles.addIconContainer}>
                 <MaterialIcons name="person-add" size={22} color={Colors.light.primaryMuted} />
               </View>
@@ -163,11 +183,11 @@ export default function StaffScreen() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Active Members</Text>
             <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{users.filter(u => u.active).length}</Text>
+              <Text style={styles.countBadgeText}>{filteredUsers.filter(u => u.active).length}</Text>
             </View>
           </View>
 
-          {users.filter(u => u.active).map((user) => (
+          {filteredUsers.filter(u => u.active).map((user) => (
             <TouchableOpacity
               key={user._id}
               onPress={() => handleManagePermissions(user)}
@@ -183,12 +203,12 @@ export default function StaffScreen() {
           ))}
 
           {/* Inactive/Pending Members */}
-          {users.filter(u => !u.active).length > 0 && (
+          {filteredUsers.filter(u => !u.active).length > 0 && (
             <>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Inactive / Pending</Text>
               </View>
-              {users.filter(u => !u.active).map((user) => (
+              {filteredUsers.filter(u => !u.active).map((user) => (
                 <StaffCard
                   key={user._id}
                   name={user.name}
@@ -285,6 +305,200 @@ export default function StaffScreen() {
                     <ActivityIndicator size="small" color={Colors.light.textInverse} />
                   ) : (
                     <Text style={styles.saveBtnText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Add Staff Modal */}
+        <Modal
+          visible={addStaffModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setAddStaffModalVisible(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setAddStaffModalVisible(false)}>
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHandle}>
+                <View style={styles.modalHandleBar} />
+              </View>
+
+              <Text style={styles.modalTitle}>Add New Staff Member</Text>
+              <Text style={styles.modalSubtitle}>
+                Create a new account for your team
+              </Text>
+
+              <ScrollView style={styles.addStaffForm}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Full Name</Text>
+                  <View style={[styles.inputContainer, Shadow.sm]}>
+                    <MaterialIcons name="person" size={20} color={Colors.light.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="John Doe"
+                      placeholderTextColor={Colors.light.textMuted}
+                      autoCapitalize="words"
+                      value={newStaff.name}
+                      onChangeText={(text) => setNewStaff(prev => ({ ...prev, name: text }))}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <View style={[styles.inputContainer, Shadow.sm]}>
+                    <MaterialIcons name="email" size={20} color={Colors.light.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="staff@example.com"
+                      placeholderTextColor={Colors.light.textMuted}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={newStaff.email}
+                      onChangeText={(text) => setNewStaff(prev => ({ ...prev, email: text }))}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Password</Text>
+                  <View style={[styles.inputContainer, Shadow.sm]}>
+                    <MaterialIcons name="lock" size={20} color={Colors.light.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="••••••••"
+                      placeholderTextColor={Colors.light.textMuted}
+                      secureTextEntry={!showPassword}
+                      value={newStaff.password}
+                      onChangeText={(text) => setNewStaff(prev => ({ ...prev, password: text }))}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <MaterialIcons
+                        name={showPassword ? 'visibility-off' : 'visibility'}
+                        size={20}
+                        color={Colors.light.textMuted}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Phone (Optional)</Text>
+                  <View style={[styles.inputContainer, Shadow.sm]}>
+                    <MaterialIcons name="phone" size={20} color={Colors.light.textMuted} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="+1 234 567 8900"
+                      placeholderTextColor={Colors.light.textMuted}
+                      keyboardType="phone-pad"
+                      value={newStaff.phone}
+                      onChangeText={(text) => setNewStaff(prev => ({ ...prev, phone: text }))}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Role</Text>
+                  <View style={styles.roleSelector}>
+                    <TouchableOpacity
+                      style={[
+                        styles.roleOption,
+                        newStaff.role === 'staff' && styles.roleOptionActive,
+                      ]}
+                      onPress={() => setNewStaff(prev => ({ ...prev, role: 'staff' }))}
+                    >
+                      <MaterialIcons
+                        name="person"
+                        size={20}
+                        color={newStaff.role === 'staff' ? Colors.light.textInverse : Colors.light.text}
+                      />
+                      <Text
+                        style={[
+                          styles.roleOptionText,
+                          newStaff.role === 'staff' && styles.roleOptionTextActive,
+                        ]}
+                      >
+                        Staff
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.roleOption,
+                        newStaff.role === 'admin' && styles.roleOptionActive,
+                      ]}
+                      onPress={() => setNewStaff(prev => ({ ...prev, role: 'admin' }))}
+                    >
+                      <MaterialIcons
+                        name="supervisor-account"
+                        size={20}
+                        color={newStaff.role === 'admin' ? Colors.light.textInverse : Colors.light.text}
+                      />
+                      <Text
+                        style={[
+                          styles.roleOptionText,
+                          newStaff.role === 'admin' && styles.roleOptionTextActive,
+                        ]}
+                      >
+                        Admin
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => {
+                    setNewStaff({ name: '', email: '', password: '', phone: '', role: 'staff' });
+                    setAddStaffModalVisible(false);
+                  }}
+                  disabled={addingStaff}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveBtn, addingStaff && styles.saveBtnDisabled]}
+                  onPress={async () => {
+                    if (!newStaff.name.trim() || !newStaff.email.trim() || !newStaff.password) {
+                      Alert.alert('Error', 'Please fill in all required fields');
+                      return;
+                    }
+                    setAddingStaff(true);
+                    try {
+                      const response = await apiClient.post<{
+                        user: { _id: string };
+                      }>('/api/auth/register', {
+                        name: newStaff.name.trim(),
+                        email: newStaff.email.trim().toLowerCase(),
+                        password: newStaff.password,
+                        phone: newStaff.phone.trim() || undefined,
+                        company: companyFilter,
+                        role: newStaff.role,
+                      });
+
+                      if (response.success) {
+                        Alert.alert('Success', 'Staff member added successfully');
+                        setNewStaff({ name: '', email: '', password: '', phone: '', role: 'staff' });
+                        setAddStaffModalVisible(false);
+                        await refreshUser();
+                        fetchUsers();
+                      }
+                    } catch (err) {
+                      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to add staff member');
+                    } finally {
+                      setAddingStaff(false);
+                    }
+                  }}
+                  disabled={addingStaff}
+                >
+                  {addingStaff ? (
+                    <ActivityIndicator size="small" color={Colors.light.textInverse} />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Add Staff Member</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -511,5 +725,63 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm,
     color: Colors.light.textMuted,
     marginTop: 2,
+  },
+  addStaffForm: {
+    paddingHorizontal: Spacing.xl,
+    maxHeight: 400,
+  },
+  inputGroup: {
+    marginBottom: Spacing.md,
+  },
+  inputLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.surface,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    gap: Spacing.sm,
+  },
+  input: {
+    flex: 1,
+    fontSize: FontSize.md,
+    color: Colors.light.text,
+    paddingVertical: Spacing.xs,
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  roleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.surface,
+  },
+  roleOptionActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  roleOptionText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.text,
+  },
+  roleOptionTextActive: {
+    color: Colors.light.textInverse,
   },
 });
