@@ -299,11 +299,11 @@ export default function StaffScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundAlt,
+    backgroundColor: Colors.light.background,
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.light.backgroundAlt,
+    backgroundColor: Colors.light.background,
   },
   loadingContainer: {
     flex: 1,

@@ -104,9 +104,7 @@ export default function LedgerScreen() {
             <View style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity activeOpacity={0.7}>
-                        <MaterialIcons name="menu" size={24} color={Colors.light.text} />
-                    </TouchableOpacity>
+                    <View style={{ width: 24 }} />
                     <Text style={styles.headerTitle}>Debt Ledger</Text>
                     <TouchableOpacity style={styles.exportBtn} activeOpacity={0.7}>
                         <MaterialIcons name="file-download" size={18} color={Colors.light.primaryMuted} />
