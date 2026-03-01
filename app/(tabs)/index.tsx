@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, ToastAndroid } from 'react-native';
+import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Platform, ToastAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
@@ -140,11 +140,15 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>
-                {user?.name?.charAt(0)?.toUpperCase() || 'O'}
-              </Text>
-            </View>
+            {user?.profileImage?.url ? (
+              <Image source={{ uri: user.profileImage.url }} style={styles.profileAvatarImage} />
+            ) : (
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileAvatarText}>
+                  {user?.name?.charAt(0)?.toUpperCase() || 'O'}
+                </Text>
+              </View>
+            )}
             <View>
               <Text style={styles.welcomeLabel}>WELCOME BACK</Text>
               <Text style={styles.ownerName}>{user?.name || 'Owner'}</Text>
@@ -296,6 +300,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  profileAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
   },
   profileAvatarText: {
     fontSize: FontSize.lg,

@@ -20,6 +20,10 @@ interface User {
   active: boolean;
   phone?: string;
   company?: string;
+  profileImage?: {
+    url: string;
+    publicId: string;
+  };
 }
 
 interface AuthContextType {
