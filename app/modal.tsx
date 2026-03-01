@@ -24,11 +24,12 @@ type ModalMode = 'payment' | 'create' | 'contact';
 
 export default function RecordPaymentModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string; contactId?: string }>();
+  const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string; contactId?: string; settleAmount?: string }>();
   const { canCreateLedger, canRecordPayment } = usePermissions();
   
   const ledgerId = params.ledgerId;
   const contactId = params.contactId;
+  const settleAmount = params.settleAmount;
   const outstandingBalance = ledgerId ? parseFloat(params.outstandingBalance || '0') : 0;
   
   const [mode, setMode] = useState<ModalMode>(() => {
@@ -36,6 +37,12 @@ export default function RecordPaymentModal() {
     if (ledgerId) return 'payment';
     return canCreateLedger ? 'create' : 'payment';
   });
+
+  useEffect(() => {
+    if (settleAmount) {
+      setAmount(settleAmount);
+    }
+  }, [settleAmount]);
 
   useEffect(() => {
     if (!ledgerId && !canCreateLedger) {

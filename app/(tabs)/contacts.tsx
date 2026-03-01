@@ -2,8 +2,9 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { Contact, contactsApi, ContactBalance } from '@/src/services/contacts';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ContactsScreen() {
@@ -267,6 +268,43 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
         return `${prefix}$${Math.abs(amount).toFixed(2)}`;
     };
 
+    const handleCall = () => {
+        if (contact.phone) {
+            const phoneUrl = `tel:${contact.phone}`;
+            Linking.openURL(phoneUrl).catch(() => {
+                Alert.alert('Error', 'Unable to make phone call');
+            });
+        }
+    };
+
+    const handleMessage = () => {
+        if (contact.phone) {
+            const smsUrl = `sms:${contact.phone}`;
+            Linking.openURL(smsUrl).catch(() => {
+                Alert.alert('Error', 'Unable to open messaging');
+            });
+        }
+    };
+
+    const handleSettleUp = () => {
+        if (contact.balance && contact.balance.netBalance !== 0) {
+            router.push({ 
+                pathname: '/modal', 
+                params: { 
+                    contactId: contact._id,
+                    settleAmount: String(Math.abs(contact.balance.netBalance))
+                } 
+            });
+        }
+    };
+
+    const handleNewEntry = () => {
+        router.push({ 
+            pathname: '/modal', 
+            params: { contactId: contact._id } 
+        });
+    };
+
     return (
         <View style={styles.detailContainer}>
             {/* Header */}
@@ -309,13 +347,13 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                     </View>
                     <View style={styles.contactActions}>
                         {contact.phone && (
-                            <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7}>
+                            <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7} onPress={handleCall}>
                                 <MaterialIcons name="phone" size={18} color={Colors.light.primary} />
                                 <Text style={styles.contactActionText}>Call</Text>
                             </TouchableOpacity>
                         )}
                         {contact.email && (
-                            <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7}>
+                            <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7} onPress={handleMessage}>
                                 <MaterialIcons name="message" size={18} color={Colors.light.primary} />
                                 <Text style={styles.contactActionText}>Message</Text>
                             </TouchableOpacity>
@@ -345,7 +383,12 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                             </View>
                         </View>
                     )}
-                    <TouchableOpacity style={styles.settleUpBtn} activeOpacity={0.7}>
+                    <TouchableOpacity 
+                        style={[styles.settleUpBtn, !contact.balance?.netBalance && styles.settleUpBtnDisabled]} 
+                        activeOpacity={0.7}
+                        onPress={handleSettleUp}
+                        disabled={!contact.balance?.netBalance}
+                    >
                         <Text style={styles.settleUpText}>Settle Up</Text>
                     </TouchableOpacity>
                 </View>
@@ -428,7 +471,7 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                     <MaterialIcons name="payment" size={20} color={Colors.light.textInverse} />
                     <Text style={styles.bottomBtnPrimaryText}>Record Payment</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.bottomBtnSecondary} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.bottomBtnSecondary} activeOpacity={0.7} onPress={handleNewEntry}>
                     <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.primary} />
                     <Text style={styles.bottomBtnSecondaryText}>New Entry</Text>
                 </TouchableOpacity>
@@ -724,6 +767,9 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
         borderRadius: BorderRadius.full,
         marginTop: Spacing.sm,
+    },
+    settleUpBtnDisabled: {
+        backgroundColor: Colors.light.border,
     },
     settleUpText: {
         fontSize: FontSize.md,
