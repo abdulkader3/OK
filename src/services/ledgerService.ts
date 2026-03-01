@@ -116,3 +116,40 @@ export async function updateLedger(id: string, data: UpdateLedgerData): Promise<
   }
   throw new Error(response.message || 'Failed to update ledger');
 }
+
+export interface AddDebtData {
+  amount: number;
+  note?: string;
+}
+
+export interface RecordedBy {
+  _id: string;
+  name: string;
+  email: string;
+}
+
+export interface AddDebtPayment {
+  _id: string;
+  ledgerId: string;
+  amount: number;
+  type: 'adjustment';
+  method: 'other';
+  note?: string;
+  recordedBy: RecordedBy;
+  previousOutstanding: number;
+  newOutstanding: number;
+  recordedAt: string;
+}
+
+export interface AddDebtResponse {
+  ledger: Ledger;
+  payment: AddDebtPayment;
+}
+
+export async function addDebt(id: string, data: AddDebtData): Promise<AddDebtResponse> {
+  const response = await apiClient.post<AddDebtResponse>(`/api/ledgers/${id}/add-debt`, data);
+  if (response.success && response.data) {
+    return response.data;
+  }
+  throw new Error(response.message || 'Failed to add debt');
+}

@@ -1,5 +1,5 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
-import { deleteLedger, getLedgerById, Ledger, updateLedger, UpdateLedgerData } from '@/services/ledgerService';
+import { addDebt, deleteLedger, getLedgerById, Ledger, updateLedger, UpdateLedgerData } from '@/services/ledgerService';
 import { getPayments, Payment } from '@/services/paymentService';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -30,9 +30,13 @@ export default function LedgerDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddDebtModal, setShowAddDebtModal] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editData, setEditData] = useState<UpdateLedgerData>({});
   const [newTag, setNewTag] = useState('');
+  const [addDebtAmount, setAddDebtAmount] = useState('');
+  const [addDebtNote, setAddDebtNote] = useState('');
+  const [addDebtLoading, setAddDebtLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -79,7 +83,7 @@ export default function LedgerDetailScreen() {
     }
   };
 
-  const handleDelete = () => {
+const handleDelete = () => {
     Alert.alert(
       'Delete Ledger',
       'Are you sure you want to delete this ledger? This action cannot be undone.',
@@ -101,6 +105,38 @@ export default function LedgerDetailScreen() {
         },
       ]
     );
+  };
+
+  const handleAddDebt = async () => {
+    const amount = parseFloat(addDebtAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount greater than 0');
+      return;
+    }
+
+    setAddDebtLoading(true);
+    try {
+      const result = await addDebt(id!, {
+        amount,
+        note: addDebtNote || undefined,
+      });
+      const payment: Payment = {
+        ...result.payment,
+        ledgerId: id!,
+        offline: false,
+        syncStatus: 'synced',
+      };
+      setLedger(result.ledger);
+      setPayments([payment, ...payments]);
+      setShowAddDebtModal(false);
+      setAddDebtAmount('');
+      setAddDebtNote('');
+      Alert.alert('Success', 'Debt added successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add debt');
+    } finally {
+      setAddDebtLoading(false);
+    }
   };
 
   const openEditModal = () => {
@@ -285,7 +321,7 @@ export default function LedgerDetailScreen() {
           )}
         </View>
 
-        {/* Record Payment Button */}
+{/* Record Payment Button */}
         {ledger.outstandingBalance > 0 && (
           <TouchableOpacity
             style={[styles.recordPaymentBtn, Shadow.sm]}
@@ -296,6 +332,16 @@ export default function LedgerDetailScreen() {
             <Text style={styles.recordPaymentText}>Record Payment</Text>
           </TouchableOpacity>
         )}
+
+        {/* Add Debt Button */}
+        <TouchableOpacity
+          style={[styles.addDebtBtn, Shadow.sm]}
+          activeOpacity={0.8}
+          onPress={() => setShowAddDebtModal(true)}
+        >
+          <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.textInverse} />
+          <Text style={styles.addDebtText}>Add More Debt</Text>
+        </TouchableOpacity>
 
         {/* Recent Payments */}
         <View style={styles.paymentsSection}>
@@ -483,6 +529,75 @@ export default function LedgerDetailScreen() {
                   <ActivityIndicator size="small" color={Colors.light.textInverse} />
                 ) : (
                   <Text style={styles.editSaveText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+</View>
+        </View>
+      </Modal>
+
+      {/* Add Debt Modal */}
+      <Modal
+        visible={showAddDebtModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddDebtModal(false)}
+      >
+        <View style={styles.editModalOverlay}>
+          <View style={[styles.editModalContainer, Shadow.lg]}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Add More Debt</Text>
+              <TouchableOpacity onPress={() => setShowAddDebtModal(false)}>
+                <MaterialIcons name="close" size={24} color={Colors.light.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.editModalContent}>
+                <View style={styles.editInputGroup}>
+                  <Text style={styles.editLabel}>Amount</Text>
+                  <TextInput
+                    style={[styles.editInput, Shadow.sm]}
+                    value={addDebtAmount}
+                    onChangeText={setAddDebtAmount}
+                    placeholder="Enter amount"
+                    placeholderTextColor={Colors.light.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+
+                <View style={styles.editInputGroup}>
+                  <Text style={styles.editLabel}>Note (Optional)</Text>
+                  <TextInput
+                    style={[styles.editTextArea, Shadow.sm]}
+                    value={addDebtNote}
+                    onChangeText={setAddDebtNote}
+                    placeholder="Add a note..."
+                    placeholderTextColor={Colors.light.textMuted}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.editModalActions}>
+              <TouchableOpacity
+                style={styles.editCancelBtn}
+                onPress={() => setShowAddDebtModal(false)}
+              >
+                <Text style={styles.editCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editSaveBtn, Shadow.sm, addDebtLoading && styles.editSaveBtnDisabled]}
+                onPress={handleAddDebt}
+                disabled={addDebtLoading}
+              >
+                {addDebtLoading ? (
+                  <ActivityIndicator size="small" color={Colors.light.textInverse} />
+                ) : (
+                  <Text style={styles.editSaveText}>Add Debt</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -723,7 +838,23 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.xl,
   },
-  recordPaymentText: {
+recordPaymentText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.textInverse,
+  },
+  addDebtBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.light.accentOrange,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  addDebtText: {
     fontSize: FontSize.md,
     fontWeight: FontWeight.semibold,
     color: Colors.light.textInverse,
