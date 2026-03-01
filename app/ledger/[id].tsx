@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { addDebt, deleteLedger, getLedgerById, Ledger, updateLedger, UpdateLedgerData } from '@/services/ledgerService';
 import { getPayments, Payment } from '@/services/paymentService';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -26,6 +27,7 @@ export default function LedgerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { canEditLedger, canDeleteLedger } = usePermissions();
+  const { t } = useLanguage();
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,9 +79,9 @@ export default function LedgerDetailScreen() {
       setLedger(updated);
       setShowEditModal(false);
       setEditData({});
-      Alert.alert('Success', 'Ledger updated successfully');
+      Alert.alert(t('common.success'), t('ledgerDetail.ledgerUpdated'));
     } catch (error) {
-      Alert.alert('Error', 'Failed to update ledger');
+      Alert.alert(t('common.error'), t('ledgerDetail.ledgerUpdatedError'));
     } finally {
       setEditLoading(false);
     }
@@ -87,21 +89,21 @@ export default function LedgerDetailScreen() {
 
 const handleDelete = () => {
     Alert.alert(
-      'Delete Ledger',
-      'Are you sure you want to delete this ledger? This action cannot be undone.',
+      t('ledgerDetail.deleteLedger'),
+      t('ledgerDetail.deleteConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteLedger(id!);
-              Alert.alert('Success', 'Ledger deleted', [
+              Alert.alert(t('common.success'), t('ledgerDetail.ledgerDeleted'), [
                 { text: 'OK', onPress: () => router.back() }
               ]);
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete ledger');
+              Alert.alert(t('common.error'), t('ledgerDetail.deleteLedgerError'));
             }
           },
         },
@@ -112,7 +114,7 @@ const handleDelete = () => {
   const handleAddDebt = async () => {
     const amount = parseFloat(addDebtAmount);
     if (!amount || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount greater than 0');
+      Alert.alert(t('common.error'), t('ledgerDetail.enterValidAmount'));
       return;
     }
 
@@ -133,9 +135,9 @@ const handleDelete = () => {
       setShowAddDebtModal(false);
       setAddDebtAmount('');
       setAddDebtNote('');
-      Alert.alert('Success', 'Debt added successfully');
+      Alert.alert(t('common.success'), t('ledgerDetail.debtAdded'));
     } catch (error) {
-      Alert.alert('Error', 'Failed to add debt');
+      Alert.alert(t('common.error'), t('ledgerDetail.debtAddedError'));
     } finally {
       setAddDebtLoading(false);
     }
@@ -208,7 +210,7 @@ const handleDelete = () => {
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ledger Details</Text>
+          <Text style={styles.headerTitle}>{t('ledgerDetail.title')}</Text>
           <TouchableOpacity activeOpacity={0.7} onPress={() => setShowMenu(true)}>
             <MaterialIcons name="more-vert" size={24} color={Colors.light.text} />
           </TouchableOpacity>
@@ -265,28 +267,28 @@ const handleDelete = () => {
             </View>
           </View>
 
-          <View style={styles.amountRow}>
+<View style={styles.amountRow}>
             <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>Initial</Text>
+              <Text style={styles.amountLabel}>{t('ledgerDetail.initial')}</Text>
               <Text style={styles.amountValue}>${ledger.initialAmount.toFixed(2)}</Text>
             </View>
             <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>Outstanding</Text>
+              <Text style={styles.amountLabel}>{t('ledgerDetail.outstanding')}</Text>
               <Text style={[styles.amountValue, styles.outstandingAmount]}>
                 ${ledger.outstandingBalance.toFixed(2)}
               </Text>
             </View>
             <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>Due Date</Text>
+              <Text style={styles.amountLabel}>{t('ledgerDetail.dueDate')}</Text>
               <Text style={styles.amountValue}>
-                {ledger.dueDate ? formatDate(ledger.dueDate) : 'N/A'}
+                {ledger.dueDate ? formatDate(ledger.dueDate) : t('ledgerDetail.na')}
               </Text>
             </View>
           </View>
 
-          {ledger.notes && (
+{ledger.notes && (
             <View style={styles.notesSection}>
-              <Text style={styles.notesLabel}>Notes</Text>
+              <Text style={styles.notesLabel}>{t('common.notes')}</Text>
               <Text style={styles.notesText}>{ledger.notes}</Text>
             </View>
           )}
@@ -294,7 +296,7 @@ const handleDelete = () => {
           {/* Tags */}
           {ledger.tags && ledger.tags.length > 0 && (
             <View style={styles.tagsSection}>
-              <Text style={styles.notesLabel}>Tags</Text>
+              <Text style={styles.notesLabel}>{t('common.tags')}</Text>
               <View style={styles.tagsRow}>
                 {ledger.tags.map((tag, index) => (
                   <View key={index} style={styles.tag}>
@@ -305,10 +307,10 @@ const handleDelete = () => {
             </View>
           )}
 
-          {/* Attachments */}
+{/* Attachments */}
           {ledger.attachments && ledger.attachments.length > 0 && (
             <View style={styles.attachmentsSection}>
-              <Text style={styles.notesLabel}>Attachments</Text>
+              <Text style={styles.notesLabel}>{t('ledgerDetail.attachments')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsScroll}>
                 <View style={styles.attachmentsRow}>
                   {ledger.attachments.map((attachment, index) => (
@@ -331,7 +333,7 @@ const handleDelete = () => {
             onPress={() => router.push({ pathname: '/modal', params: { ledgerId: ledger._id, outstandingBalance: ledger.outstandingBalance } })}
           >
             <MaterialIcons name="add" size={20} color={Colors.light.textInverse} />
-            <Text style={styles.recordPaymentText}>Record Payment</Text>
+            <Text style={styles.recordPaymentText}>{t('ledgerDetail.recordPayment')}</Text>
           </TouchableOpacity>
         )}
 
@@ -342,17 +344,17 @@ const handleDelete = () => {
           onPress={() => setShowAddDebtModal(true)}
         >
           <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.textInverse} />
-          <Text style={styles.addDebtText}>Add More Debt</Text>
+          <Text style={styles.addDebtText}>{t('ledgerDetail.addMoreDebt')}</Text>
         </TouchableOpacity>
 
-        {/* Recent Payments */}
+{/* Recent Payments */}
         <View style={styles.paymentsSection}>
-          <Text style={styles.sectionTitle}>Payment History</Text>
+          <Text style={styles.sectionTitle}>{t('ledgerDetail.paymentHistory')}</Text>
 
           {payments.length === 0 ? (
             <View style={styles.emptyPayments}>
               <MaterialIcons name="receipt-long" size={40} color={Colors.light.textMuted} />
-              <Text style={styles.emptyText}>No payments yet</Text>
+              <Text style={styles.emptyText}>{t('ledgerDetail.noPaymentsYet')}</Text>
             </View>
 ) : (
             payments.map((payment) => (
@@ -411,7 +413,7 @@ const handleDelete = () => {
 
                 <View style={styles.balanceInfo}>
                   <Text style={styles.balanceInfoText}>
-                    Outstanding: ${payment.previousOutstanding.toFixed(2)} → ${payment.newOutstanding.toFixed(2)}
+                    {t('ledgerDetail.outstandingStatus')} ${payment.previousOutstanding.toFixed(2)} → ${payment.newOutstanding.toFixed(2)}
                   </Text>
                 </View>
               </View>
@@ -429,28 +431,28 @@ const handleDelete = () => {
       >
         <View style={styles.editModalOverlay}>
           <View style={[styles.editModalContainer, Shadow.lg]}>
-            <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>Edit Ledger</Text>
+<View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>{t('ledgerDetail.editLedger')}</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
                 <MaterialIcons name="close" size={24} color={Colors.light.text} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.editModalContent}>
+<View style={styles.editModalContent}>
                 <View style={styles.editInputGroup}>
-                  <Text style={styles.editLabel}>Name</Text>
+                  <Text style={styles.editLabel}>{t('common.name')}</Text>
                   <TextInput
                     style={[styles.editInput, Shadow.sm]}
                     value={editData.counterpartyName || ''}
                     onChangeText={(text) => setEditData({ ...editData, counterpartyName: text })}
-                    placeholder="Enter name"
+                    placeholder={t('ledgerDetail.enterName')}
                     placeholderTextColor={Colors.light.textMuted}
                   />
                 </View>
 
                 <View style={styles.editInputGroup}>
-                  <Text style={styles.editLabel}>Priority</Text>
+                  <Text style={styles.editLabel}>{t('ledgerDetail.priority')}</Text>
                   <View style={styles.priorityRow}>
                     {(['low', 'medium', 'high'] as const).map((p) => (
                       <TouchableOpacity
@@ -470,7 +472,7 @@ const handleDelete = () => {
                             editData.priority === p && styles.priorityBtnTextActive,
                           ]}
                         >
-                          {p.charAt(0).toUpperCase() + p.slice(1)}
+                          {p === 'low' ? t('ledgerDetail.low') : p === 'medium' ? t('ledgerDetail.medium') : t('ledgerDetail.high')}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -478,12 +480,12 @@ const handleDelete = () => {
                 </View>
 
                 <View style={styles.editInputGroup}>
-                  <Text style={styles.editLabel}>Notes</Text>
+                  <Text style={styles.editLabel}>{t('common.notes')}</Text>
                   <TextInput
                     style={[styles.editTextArea, Shadow.sm]}
                     value={editData.notes || ''}
                     onChangeText={(text) => setEditData({ ...editData, notes: text })}
-                    placeholder="Add notes..."
+                    placeholder={t('ledgerDetail.addNoteOptional')}
                     placeholderTextColor={Colors.light.textMuted}
                     multiline
                     numberOfLines={4}
@@ -493,7 +495,7 @@ const handleDelete = () => {
 
                 {/* Tags */}
                 <View style={styles.editInputGroup}>
-                  <Text style={styles.editLabel}>Tags</Text>
+                  <Text style={styles.editLabel}>{t('common.tags')}</Text>
                   <View style={styles.editTagsRow}>
                     {(editData.tags || []).map((tag, index) => (
                       <View key={index} style={styles.editTag}>
@@ -505,11 +507,11 @@ const handleDelete = () => {
                     ))}
                   </View>
                   <View style={styles.addTagRow}>
-                    <TextInput
+<TextInput
                       style={[styles.tagInput, Shadow.sm]}
                       value={newTag}
                       onChangeText={setNewTag}
-                      placeholder="Add tag..."
+                      placeholder={t('ledgerDetail.addTag')}
                       placeholderTextColor={Colors.light.textMuted}
                       onSubmitEditing={addTag}
                     />
@@ -522,11 +524,11 @@ const handleDelete = () => {
             </ScrollView>
 
             <View style={styles.editModalActions}>
-              <TouchableOpacity
+<TouchableOpacity
                 style={styles.editCancelBtn}
                 onPress={() => setShowEditModal(false)}
               >
-                <Text style={styles.editCancelText}>Cancel</Text>
+                <Text style={styles.editCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.editSaveBtn, Shadow.sm, editLoading && styles.editSaveBtnDisabled]}
@@ -536,7 +538,7 @@ const handleDelete = () => {
                 {editLoading ? (
                   <ActivityIndicator size="small" color={Colors.light.textInverse} />
                 ) : (
-                  <Text style={styles.editSaveText}>Save Changes</Text>
+                  <Text style={styles.editSaveText}>{t('common.save')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -557,7 +559,7 @@ const handleDelete = () => {
         >
           <View style={[styles.editModalContainer, Shadow.lg]}>
             <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>Add More Debt</Text>
+              <Text style={styles.editModalTitle}>{t('ledgerDetail.addMoreDebt')}</Text>
               <TouchableOpacity onPress={() => setShowAddDebtModal(false)}>
                 <MaterialIcons name="close" size={24} color={Colors.light.text} />
               </TouchableOpacity>
@@ -566,24 +568,24 @@ const handleDelete = () => {
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.editModalContent}>
                 <View style={styles.editInputGroup}>
-                  <Text style={styles.editLabel}>Amount</Text>
+                  <Text style={styles.editLabel}>{t('common.amount')}</Text>
                   <TextInput
                     style={[styles.editInput, Shadow.sm]}
                     value={addDebtAmount}
                     onChangeText={setAddDebtAmount}
-                    placeholder="Enter amount"
+                    placeholder={t('ledgerDetail.enterAmount')}
                     placeholderTextColor={Colors.light.textMuted}
                     keyboardType="decimal-pad"
                   />
                 </View>
 
                 <View style={styles.editInputGroup}>
-                  <Text style={styles.editLabel}>Note (Optional)</Text>
+                  <Text style={styles.editLabel}>{t('modal.noteOptional')}</Text>
                   <TextInput
                     style={[styles.editTextArea, Shadow.sm]}
                     value={addDebtNote}
                     onChangeText={setAddDebtNote}
-                    placeholder="Add a note..."
+                    placeholder={t('ledgerDetail.addNoteOptional')}
                     placeholderTextColor={Colors.light.textMuted}
                     multiline
                     numberOfLines={3}
@@ -598,7 +600,7 @@ const handleDelete = () => {
                 style={styles.editCancelBtn}
                 onPress={() => setShowAddDebtModal(false)}
               >
-                <Text style={styles.editCancelText}>Cancel</Text>
+                <Text style={styles.editCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.editSaveBtn, Shadow.sm, addDebtLoading && styles.editSaveBtnDisabled]}
@@ -608,7 +610,7 @@ const handleDelete = () => {
                 {addDebtLoading ? (
                   <ActivityIndicator size="small" color={Colors.light.textInverse} />
                 ) : (
-                  <Text style={styles.editSaveText}>Add Debt</Text>
+                  <Text style={styles.editSaveText}>{t('ledgerDetail.addDebt')}</Text>
                 )}
               </TouchableOpacity>
             </View>

@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { updateProfile, changePassword } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage, Language } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,8 +26,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showLanguage, setShowLanguage] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const [name, setName] = useState(user?.name || '');
@@ -127,14 +130,14 @@ export default function SettingsScreen() {
           <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerTitle}>{t('settings.title')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           {/* Profile Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Profile</Text>
+            <Text style={styles.sectionTitle}>{t('settings.profile')}</Text>
             <View style={[styles.card, Shadow.sm]}>
               <View style={styles.profileHeader}>
                 {(user as any)?.profileImage?.url ? (
@@ -165,33 +168,53 @@ export default function SettingsScreen() {
                 onPress={() => setShowEditProfile(true)}
               >
                 <MaterialIcons name="edit" size={18} color={Colors.light.primary} />
-                <Text style={styles.editBtnText}>Edit Profile</Text>
+                <Text style={styles.editBtnText}>{t('settings.editProfile')}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Account Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
+            <Text style={styles.sectionTitle}>{t('settings.account')}</Text>
             <View style={[styles.card, Shadow.sm]}>
               <TouchableOpacity 
                 style={styles.menuItem}
                 onPress={() => setShowChangePassword(true)}
               >
                 <MaterialIcons name="lock" size={22} color={Colors.light.textSecondary} />
-                <Text style={styles.menuItemText}>Change Password</Text>
+                <Text style={styles.menuItemText}>{t('settings.changePassword')}</Text>
                 <MaterialIcons name="chevron-right" size={22} color={Colors.light.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Language Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('settings.language')}</Text>
+            <View style={[styles.card, Shadow.sm]}>
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => setShowLanguage(true)}
+              >
+                <MaterialIcons name="language" size={22} color={Colors.light.textSecondary} />
+                <Text style={styles.menuItemText}>{t('settings.language')}</Text>
+                <View style={styles.languageValue}>
+                  <Text style={styles.menuItemValue}>
+                    {language === 'en' ? t('settings.english') : t('settings.bangla')}
+                  </Text>
+                  <MaterialIcons name="chevron-right" size={22} color={Colors.light.textMuted} />
+                </View>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* About Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
+            <Text style={styles.sectionTitle}>{t('settings.about')}</Text>
             <View style={[styles.card, Shadow.sm]}>
               <View style={styles.menuItem}>
                 <MaterialIcons name="info" size={22} color={Colors.light.textSecondary} />
-                <Text style={styles.menuItemText}>Version</Text>
+                <Text style={styles.menuItemText}>{t('settings.version')}</Text>
                 <Text style={styles.menuItemValue}>1.0.0</Text>
               </View>
             </View>
@@ -212,7 +235,7 @@ export default function SettingsScreen() {
             >
               <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Edit Profile</Text>
+                  <Text style={styles.modalTitle}>{t('settings.editProfile')}</Text>
                   <TouchableOpacity onPress={() => setShowEditProfile(false)}>
                     <MaterialIcons name="close" size={24} color={Colors.light.text} />
                   </TouchableOpacity>
@@ -231,7 +254,7 @@ export default function SettingsScreen() {
                         ) : (
                           <View style={styles.imagePickerPlaceholder}>
                             <MaterialIcons name="add-a-photo" size={32} color={Colors.light.textMuted} />
-                            <Text style={styles.imagePickerText}>Add Photo</Text>
+                            <Text style={styles.imagePickerText}>{t('settings.addPhoto')}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -243,35 +266,35 @@ export default function SettingsScreen() {
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Name</Text>
+                      <Text style={styles.inputLabel}>{t('common.name')}</Text>
                       <TextInput
                         style={[styles.input, Shadow.sm]}
                         value={name}
                         onChangeText={setName}
-                        placeholder="Your name"
+                        placeholder={t('settings.yourName')}
                         placeholderTextColor={Colors.light.textMuted}
                       />
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Phone</Text>
+                      <Text style={styles.inputLabel}>{t('common.phone')}</Text>
                       <TextInput
                         style={[styles.input, Shadow.sm]}
                         value={phone}
                         onChangeText={setPhone}
-                        placeholder="+1 234 567 8900"
+                        placeholder={t('settings.yourPhone')}
                         placeholderTextColor={Colors.light.textMuted}
                         keyboardType="phone-pad"
                       />
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Company</Text>
+                      <Text style={styles.inputLabel}>{t('settings.company')}</Text>
                       <TextInput
                         style={[styles.input, Shadow.sm]}
                         value={company}
                         onChangeText={setCompany}
-                        placeholder="Your company"
+                        placeholder={t('settings.yourCompany')}
                         placeholderTextColor={Colors.light.textMuted}
                       />
                     </View>
@@ -284,7 +307,7 @@ export default function SettingsScreen() {
                     onPress={() => setShowEditProfile(false)}
                     disabled={saving}
                   >
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                    <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -294,7 +317,7 @@ export default function SettingsScreen() {
                     {saving ? (
                       <ActivityIndicator size="small" color={Colors.light.textInverse} />
                     ) : (
-                      <Text style={styles.saveBtnText}>Save</Text>
+                      <Text style={styles.saveBtnText}>{t('common.save')}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -317,7 +340,7 @@ export default function SettingsScreen() {
             >
               <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Change Password</Text>
+                  <Text style={styles.modalTitle}>{t('settings.changePassword')}</Text>
                   <TouchableOpacity onPress={() => setShowChangePassword(false)}>
                     <MaterialIcons name="close" size={24} color={Colors.light.text} />
                   </TouchableOpacity>
@@ -330,36 +353,36 @@ export default function SettingsScreen() {
                 >
                   <View style={styles.modalBody}>
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Current Password</Text>
+                      <Text style={styles.inputLabel}>{t('settings.currentPassword')}</Text>
                       <TextInput
                         style={[styles.input, Shadow.sm]}
                         value={currentPassword}
                         onChangeText={setCurrentPassword}
-                        placeholder="Enter current password"
+                        placeholder={t('settings.enterCurrentPassword')}
                         placeholderTextColor={Colors.light.textMuted}
                         secureTextEntry
                       />
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>New Password</Text>
+                      <Text style={styles.inputLabel}>{t('settings.newPassword')}</Text>
                       <TextInput
                         style={[styles.input, Shadow.sm]}
                         value={newPassword}
                         onChangeText={setNewPassword}
-                        placeholder="Enter new password"
+                        placeholder={t('settings.enterNewPassword')}
                         placeholderTextColor={Colors.light.textMuted}
                         secureTextEntry
                       />
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Confirm Password</Text>
+                      <Text style={styles.inputLabel}>{t('settings.confirmPassword')}</Text>
                       <TextInput
                         style={[styles.input, Shadow.sm]}
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
-                        placeholder="Confirm new password"
+                        placeholder={t('settings.confirmNewPassword')}
                         placeholderTextColor={Colors.light.textMuted}
                         secureTextEntry
                       />
@@ -373,7 +396,7 @@ export default function SettingsScreen() {
                     onPress={() => setShowChangePassword(false)}
                     disabled={saving}
                   >
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                    <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -383,7 +406,79 @@ export default function SettingsScreen() {
                     {saving ? (
                       <ActivityIndicator size="small" color={Colors.light.textInverse} />
                     ) : (
-                      <Text style={styles.saveBtnText}>Change</Text>
+                      <Text style={styles.saveBtnText}>{t('settings.change')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </KeyboardAvoidingView>
+          </Pressable>
+        </Modal>
+
+        {/* Language Modal */}
+        <Modal
+          visible={showLanguage}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowLanguage(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowLanguage(false)}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalKeyboardView}
+            >
+              <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{t('settings.language')}</Text>
+                  <TouchableOpacity onPress={() => setShowLanguage(false)}>
+                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalBody}>
+                  <TouchableOpacity
+                    style={[
+                      styles.languageOption,
+                      language === 'en' && styles.languageOptionActive,
+                    ]}
+                    onPress={() => {
+                      setLanguage('en');
+                      setShowLanguage(false);
+                    }}
+                  >
+                    <View style={styles.languageOptionContent}>
+                      <Text style={[
+                        styles.languageOptionText,
+                        language === 'en' && styles.languageOptionTextActive,
+                      ]}>
+                        {t('settings.english')}
+                      </Text>
+                    </View>
+                    {language === 'en' && (
+                      <MaterialIcons name="check" size={24} color={Colors.light.primary} />
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.languageOption,
+                      language === 'bn' && styles.languageOptionActive,
+                    ]}
+                    onPress={() => {
+                      setLanguage('bn');
+                      setShowLanguage(false);
+                    }}
+                  >
+                    <View style={styles.languageOptionContent}>
+                      <Text style={[
+                        styles.languageOptionText,
+                        language === 'bn' && styles.languageOptionTextActive,
+                      ]}>
+                        {t('settings.bangla')}
+                      </Text>
+                    </View>
+                    {language === 'bn' && (
+                      <MaterialIcons name="check" size={24} color={Colors.light.primary} />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -526,6 +621,38 @@ const styles = StyleSheet.create({
   menuItemValue: {
     fontSize: FontSize.md,
     color: Colors.light.textMuted,
+  },
+  languageValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    marginBottom: Spacing.md,
+  },
+  languageOptionActive: {
+    borderColor: Colors.light.primary,
+    backgroundColor: Colors.light.primary + '10',
+  },
+  languageOptionContent: {
+    flex: 1,
+  },
+  languageOptionText: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.text,
+  },
+  languageOptionTextActive: {
+    color: Colors.light.primary,
+    fontWeight: FontWeight.semibold,
   },
   modalOverlay: {
     flex: 1,

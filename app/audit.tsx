@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getAuditLogs, AuditLog, AuditFilters } from '@/services/auditService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -21,6 +22,7 @@ export default function AuditScreen() {
   const { entityId } = useLocalSearchParams<{ entityId: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -129,7 +131,7 @@ export default function AuditScreen() {
 
       {item.changes && item.changes.length > 0 && (
         <View style={styles.changesSection}>
-          <Text style={styles.changesTitle}>Changes:</Text>
+          <Text style={styles.changesTitle}>{t('audit.changes')}</Text>
           {item.changes.map((change, idx) => (
             <View key={idx} style={styles.changeRow}>
               <Text style={styles.changeField}>{change.field}:</Text>
@@ -147,11 +149,11 @@ export default function AuditScreen() {
     </View>
   );
 
-  const filters: { key: FilterType; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'users', label: 'Users' },
-    { key: 'ledgers', label: 'Ledgers' },
-    { key: 'payments', label: 'Payments' },
+const filters: { key: FilterType; label: string }[] = [
+    { key: 'all', label: t('audit.all') },
+    { key: 'users', label: t('audit.users') },
+    { key: 'ledgers', label: t('audit.ledgers') },
+    { key: 'payments', label: t('audit.payments') },
   ];
 
   if (loading && logs.length === 0) {
@@ -171,7 +173,7 @@ export default function AuditScreen() {
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Audit Logs</Text>
+        <Text style={styles.headerTitle}>{t('audit.title')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -200,7 +202,7 @@ export default function AuditScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="history" size={48} color={Colors.light.textMuted} />
-            <Text style={styles.emptyText}>No audit logs found</Text>
+            <Text style={styles.emptyText}>{t('audit.noAuditLogs')}</Text>
           </View>
         }
       />

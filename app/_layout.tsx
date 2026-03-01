@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
+import { LanguageProvider } from '@/src/contexts/LanguageContext';
 import { Colors } from '@/constants/theme';
 
 function AuthNavigator() {
@@ -69,10 +70,12 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <AuthNavigator />
-        <StatusBar style="auto" />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AuthNavigator />
+          <StatusBar style="auto" />
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

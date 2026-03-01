@@ -1,5 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { Contact, contactsApi, ContactBalance } from '@/src/services/contacts';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -9,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ContactsScreen() {
     const router = useRouter();
+    const { t } = useLanguage();
     
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
@@ -113,7 +115,7 @@ export default function ContactsScreen() {
                     </Text>
                     {item.balance && item.balance.ledgerCount !== undefined && (
                         <Text style={styles.ledgerCount}>
-                            {item.balance.ledgerCount} ledger{item.balance.ledgerCount !== 1 ? 's' : ''}
+                            {item.balance.ledgerCount} {item.balance.ledgerCount !== 1 ? t('contacts.ledgers_plural') : t('contacts.ledger')}
                         </Text>
                     )}
                 </View>
@@ -126,7 +128,7 @@ export default function ContactsScreen() {
                         </View>
                     ))}
                     {item.tags.length > 3 && (
-                        <Text style={styles.moreTagsText}>+{item.tags.length - 3} more</Text>
+                        <Text style={styles.moreTagsText}>{t('contacts.moreTags')}</Text>
                     )}
                 </View>
             )}
@@ -136,9 +138,9 @@ export default function ContactsScreen() {
     const renderEmpty = () => (
         <View style={styles.emptyContainer}>
             <MaterialIcons name="group" size={64} color={Colors.light.textMuted} />
-            <Text style={styles.emptyTitle}>No contacts yet</Text>
+            <Text style={styles.emptyTitle}>{t('contacts.noContactsYet')}</Text>
             <Text style={styles.emptySubtitle}>
-                {searchText ? 'No contacts match your search' : 'Add your first contact to get started'}
+                {searchText ? t('contacts.noContactsMatchSearch') : t('contacts.addFirstContact')}
             </Text>
         </View>
     );
@@ -158,7 +160,7 @@ export default function ContactsScreen() {
             <View style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Contacts</Text>
+                    <Text style={styles.headerTitle}>{t('contacts.title')}</Text>
                     <TouchableOpacity 
                         activeOpacity={0.7}
                         onPress={() => router.push('/modal')}
@@ -172,7 +174,7 @@ export default function ContactsScreen() {
                     <MaterialIcons name="search" size={20} color={Colors.light.textMuted} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search contacts..."
+                        placeholder={t('contacts.searchPlaceholder')}
                         placeholderTextColor={Colors.light.textMuted}
                         value={searchText}
                         onChangeText={setSearchText}
@@ -189,7 +191,7 @@ export default function ContactsScreen() {
                     <View style={styles.errorContainer}>
                         <Text style={styles.errorText}>{error}</Text>
                         <TouchableOpacity onPress={fetchContacts}>
-                            <Text style={styles.retryText}>Retry</Text>
+                            <Text style={styles.retryText}>{t('common.retry')}</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -257,6 +259,7 @@ type ContactWithDetails = Contact & { balance: ContactBalance; ledgers?: LedgerI
 
 function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; onClose: () => void }) {
     const router = useRouter();
+    const { t } = useLanguage();
 
     const getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -312,7 +315,7 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                 <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
                     <MaterialIcons name="close" size={24} color={Colors.light.text} />
                 </TouchableOpacity>
-                <Text style={styles.detailHeaderTitle}>Contact Profile</Text>
+                <Text style={styles.detailHeaderTitle}>{t('contacts.contactProfile')}</Text>
                 <TouchableOpacity activeOpacity={0.7}>
                     <MaterialIcons name="more-vert" size={24} color={Colors.light.text} />
                 </TouchableOpacity>
@@ -349,13 +352,13 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                         {contact.phone && (
                             <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7} onPress={handleCall}>
                                 <MaterialIcons name="phone" size={18} color={Colors.light.primary} />
-                                <Text style={styles.contactActionText}>Call</Text>
+                                <Text style={styles.contactActionText}>{t('contacts.call')}</Text>
                             </TouchableOpacity>
                         )}
                         {contact.email && (
                             <TouchableOpacity style={styles.contactActionBtn} activeOpacity={0.7} onPress={handleMessage}>
                                 <MaterialIcons name="message" size={18} color={Colors.light.primary} />
-                                <Text style={styles.contactActionText}>Message</Text>
+                                <Text style={styles.contactActionText}>{t('contacts.message')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -363,20 +366,20 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
 
                 {/* Balance Card */}
                 <View style={[styles.balanceCard, Shadow.md]}>
-                    <Text style={styles.balanceLabel}>NET BALANCE</Text>
+                    <Text style={styles.balanceLabel}>{t('contacts.netBalance')}</Text>
                     <Text style={styles.balanceAmountDetail}>
                         {formatBalance(contact.balance)}
                     </Text>
                     {contact.balance && (
                         <View style={styles.balanceDetailsRow}>
                             <View style={styles.balanceDetailItem}>
-                                <Text style={styles.balanceDetailLabel}>Owes Me</Text>
+                                <Text style={styles.balanceDetailLabel}>{t('contacts.owsMe')}</Text>
                                 <Text style={[styles.balanceDetailValue, { color: Colors.light.accentTeal }]}>
                                     ${contact.balance.totalOwesMe.toFixed(2)}
                                 </Text>
                             </View>
                             <View style={styles.balanceDetailItem}>
-                                <Text style={styles.balanceDetailLabel}>I Owe</Text>
+                                <Text style={styles.balanceDetailLabel}>{t('contacts.iOwe')}</Text>
                                 <Text style={[styles.balanceDetailValue, { color: Colors.light.accentOrange }]}>
                                     ${contact.balance.totalIOwe.toFixed(2)}
                                 </Text>
@@ -389,14 +392,14 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                         onPress={handleSettleUp}
                         disabled={!contact.balance?.netBalance}
                     >
-                        <Text style={styles.settleUpText}>Settle Up</Text>
+                        <Text style={styles.settleUpText}>{t('contacts.settleUp')}</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Notes */}
                 {contact.notes && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Notes</Text>
+                        <Text style={styles.sectionTitle}>{t('common.notes')}</Text>
                         <View style={[styles.notesCard, Shadow.sm]}>
                             <Text style={styles.notesText}>{contact.notes}</Text>
                         </View>
@@ -406,7 +409,7 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                 {/* Tags */}
                 {contact.tags && contact.tags.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Tags</Text>
+                        <Text style={styles.sectionTitle}>{t('common.tags')}</Text>
                         <View style={styles.tagsContainer}>
                             {contact.tags.map((tag, index) => (
                                 <View key={index} style={styles.detailTag}>
@@ -420,7 +423,7 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                 {/* Ledgers */}
                 {contact.ledgers && contact.ledgers.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Ledgers</Text>
+                        <Text style={styles.sectionTitle}>{t('contacts.ledgers')}</Text>
                         {contact.ledgers.map((ledger) => (
                             <TouchableOpacity 
                                 key={ledger._id} 
@@ -445,7 +448,7 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                                             styles.ledgerTypeText, 
                                             { color: ledger.type === 'owes_me' ? Colors.light.accentTeal : Colors.light.accentOrange }
                                         ]}>
-                                            {ledger.type === 'owes_me' ? 'Owes Me' : 'I Owe'}
+                                            {ledger.type === 'owes_me' ? t('contacts.owsMe') : t('contacts.iOwe')}
                                         </Text>
                                     </View>
                                     <Text style={styles.ledgerAmount}>
@@ -469,11 +472,11 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                     activeOpacity={0.7}
                 >
                     <MaterialIcons name="payment" size={20} color={Colors.light.textInverse} />
-                    <Text style={styles.bottomBtnPrimaryText}>Record Payment</Text>
+                    <Text style={styles.bottomBtnPrimaryText}>{t('contacts.recordPayment')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.bottomBtnSecondary} activeOpacity={0.7} onPress={handleNewEntry}>
                     <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.primary} />
-                    <Text style={styles.bottomBtnSecondaryText}>New Entry</Text>
+                    <Text style={styles.bottomBtnSecondaryText}>{t('contacts.newEntry')}</Text>
                 </TouchableOpacity>
             </View>
         </View>

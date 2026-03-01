@@ -7,6 +7,7 @@ import { getDashboardSummary, DashboardLedger } from '@/services/dashboardServic
 import { getQueueLength, flushQueue } from '@/services/syncService';
 import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -16,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { t } = useLanguage();
   const { isOffline } = useNetwork();
   const [summary, setSummary] = useState<{
     totalOwedToMe: number;
@@ -49,7 +51,7 @@ export default function DashboardScreen() {
     try {
       const result = await flushQueue();
       if (result.processedCount > 0) {
-        showToast(`Synced ${result.processedCount} pending operation(s)`);
+        showToast(`${t('dashboard.synced')} ${result.processedCount} ${t('dashboard.pendingOperations')}`);
       }
     } catch (error) {
       console.error('Sync failed:', error);
@@ -150,7 +152,7 @@ export default function DashboardScreen() {
               </View>
             )}
             <View>
-              <Text style={styles.welcomeLabel}>WELCOME BACK</Text>
+              <Text style={styles.welcomeLabel}>{t('dashboard.welcomeBack')}</Text>
               <Text style={styles.ownerName}>{user?.name || 'Owner'}</Text>
             </View>
           </View>
@@ -202,7 +204,7 @@ export default function DashboardScreen() {
             <View style={styles.cardRow}>
               <SummaryCard
                 icon="arrow-downward"
-                label="Owed to Me"
+                label={t('dashboard.owedToMe')}
                 amount={formatCurrency(summary?.totalOwedToMe || 0)}
                 backgroundColor={Colors.light.cardOwed}
                 iconColor={Colors.light.primaryMuted}
@@ -210,7 +212,7 @@ export default function DashboardScreen() {
               />
               <SummaryCard
                 icon="arrow-upward"
-                label="I Owe"
+                label={t('dashboard.iOwe')}
                 amount={formatCurrency(summary?.totalIOwe || 0)}
                 backgroundColor={Colors.light.cardIOwe}
                 iconColor={Colors.light.accentOrange}
@@ -220,7 +222,7 @@ export default function DashboardScreen() {
             <View style={styles.cardRow}>
               <SummaryCard
                 icon="warning"
-                label="Overdue"
+                label={t('dashboard.overdue')}
                 amount={String(summary?.overdueCount || 0)}
                 backgroundColor={Colors.light.cardOverdue}
                 iconColor={Colors.light.error}
@@ -228,7 +230,7 @@ export default function DashboardScreen() {
               />
               <SummaryCard
                 icon="schedule"
-                label="High Priority"
+                label={t('dashboard.highPriority')}
                 amount={String(summary?.highPriorityCount || 0)}
                 backgroundColor={Colors.light.cardPending}
                 iconColor={Colors.light.accent}
@@ -238,16 +240,16 @@ export default function DashboardScreen() {
           </View>
 
           {/* Filter Pills */}
-          <FilterPills filters={['All Activity', 'Due Soon', 'High Amount']} />
+          <FilterPills filters={[t('dashboard.filters.allActivity'), t('dashboard.filters.dueSoon'), t('dashboard.filters.highAmount')]} />
 
           {/* Recent Activity */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <Text style={styles.sectionTitle}>{t('dashboard.recentActivity')}</Text>
             <TouchableOpacity 
               activeOpacity={0.7}
               onPress={() => router.push('/(tabs)/ledger')}
             >
-              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAll}>{t('dashboard.viewAll')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -255,7 +257,7 @@ export default function DashboardScreen() {
             summary.recentLedgers.slice(0, 4).map((ledger, index) => renderLedgerItem(ledger, index))
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No recent activity</Text>
+              <Text style={styles.emptyText}>{t('dashboard.noRecentActivity')}</Text>
             </View>
           )}
         </ScrollView>

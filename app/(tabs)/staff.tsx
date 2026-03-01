@@ -2,6 +2,7 @@ import { StaffCard } from '@/components/staff-card';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getStaff, updateUserPermissions, updateUserStatus, User, UserPermissions } from '@/services/usersService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import apiClient from '@/src/services/apiClient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -32,6 +33,7 @@ const PERMISSIONS_LIST: { key: keyof UserPermissions; label: string; description
 
 export default function StaffScreen() {
   const { user: currentUser, refreshUser } = useAuth();
+  const { t } = useLanguage();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +79,7 @@ export default function StaffScreen() {
 
   const handleManagePermissions = (user: User) => {
     if (!canManageStaff && !isOwner) {
-      Alert.alert('Permission Required', 'You do not have permission to manage staff.');
+      Alert.alert(t('staff.permissionRequired'), t('staff.noPermissionManageStaff'));
       return;
     }
     setSelectedUser(user);
@@ -114,12 +116,12 @@ export default function StaffScreen() {
 
   const getPermissionLabels = (permissions: UserPermissions): string[] => {
     const labels: string[] = [];
-    if (permissions.canCreateLedger) labels.push('Create Ledger');
-    if (permissions.canEditLedger) labels.push('Edit Ledger');
-    if (permissions.canDeleteLedger) labels.push('Delete Ledger');
-    if (permissions.canRecordPayment) labels.push('Record Payment');
-    if (permissions.canViewAllLedgers) labels.push('View All');
-    if (permissions.canManageStaff) labels.push('Manage Staff');
+    if (permissions.canCreateLedger) labels.push(t('staff.permissions.createLedger'));
+    if (permissions.canEditLedger) labels.push(t('staff.permissions.editLedger'));
+    if (permissions.canDeleteLedger) labels.push(t('staff.permissions.deleteLedger'));
+    if (permissions.canRecordPayment) labels.push(t('staff.permissions.recordPayment'));
+    if (permissions.canViewAllLedgers) labels.push(t('staff.permissions.viewAllLedgers'));
+    if (permissions.canManageStaff) labels.push(t('staff.permissions.manageStaff'));
     return labels;
   };
 
@@ -141,7 +143,7 @@ export default function StaffScreen() {
           <TouchableOpacity activeOpacity={0.7}>
             <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Staff & Permissions</Text>
+          <Text style={styles.headerTitle}>{t('staff.title')}</Text>
           {(canManageStaff || isOwner) ? (
             <TouchableOpacity activeOpacity={0.7}>
               <MaterialIcons name="settings" size={24} color={Colors.light.text} />
@@ -158,9 +160,9 @@ export default function StaffScreen() {
         >
           {/* Intro */}
           <View style={styles.intro}>
-            <Text style={styles.introTitle}>Manage Your Team</Text>
+            <Text style={styles.introTitle}>{t('staff.manageYourTeam')}</Text>
             <Text style={styles.introDesc}>
-              Control who has access to your store&apos;s data and track their daily activities.
+              {t('staff.controlAccess')}
             </Text>
           </View>
 
@@ -174,14 +176,14 @@ export default function StaffScreen() {
               <View style={styles.addIconContainer}>
                 <MaterialIcons name="person-add" size={22} color={Colors.light.primaryMuted} />
               </View>
-              <Text style={styles.addButtonText}>Add New Staff Member</Text>
+              <Text style={styles.addButtonText}>{t('staff.addNewStaffMember')}</Text>
               <MaterialIcons name="chevron-right" size={22} color={Colors.light.textMuted} />
             </TouchableOpacity>
           )}
 
           {/* Active Members */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Active Members</Text>
+            <Text style={styles.sectionTitle}>{t('staff.activeMembers')}</Text>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{filteredUsers.filter(u => u.active).length}</Text>
             </View>
@@ -206,7 +208,7 @@ export default function StaffScreen() {
           {filteredUsers.filter(u => !u.active).length > 0 && (
             <>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Inactive / Pending</Text>
+                <Text style={styles.sectionTitle}>{t('staff.inactivePending')}</Text>
               </View>
               {filteredUsers.filter(u => !u.active).map((user) => (
                 <StaffCard
@@ -236,7 +238,7 @@ export default function StaffScreen() {
               </View>
 
               <Text style={styles.modalTitle}>
-                Manage Permissions - {selectedUser?.name}
+                {t('staff.managePermissions')} - {selectedUser?.name}
               </Text>
               <Text style={styles.modalSubtitle}>
                 {selectedUser?.role ? selectedUser.role.charAt(0).toUpperCase() + selectedUser.role.slice(1) : ''}
@@ -252,10 +254,10 @@ export default function StaffScreen() {
                   />
                   <View style={styles.activeStatusText}>
                     <Text style={styles.activeStatusLabel}>
-                      {tempActive ? 'Active' : 'Inactive'}
+                      {tempActive ? t('common.active') : t('common.inactive')}
                     </Text>
                     <Text style={styles.activeStatusDesc}>
-                      {tempActive ? 'User can access the app' : 'User cannot access the app'}
+                      {tempActive ? t('staff.userCanAccess') : t('staff.userCannotAccess')}
                     </Text>
                   </View>
                 </View>
@@ -294,7 +296,7 @@ export default function StaffScreen() {
                   onPress={() => setPermissionModalVisible(false)}
                   disabled={saving}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
@@ -304,7 +306,7 @@ export default function StaffScreen() {
                   {saving ? (
                     <ActivityIndicator size="small" color={Colors.light.textInverse} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Save Changes</Text>
+                    <Text style={styles.saveBtnText}>{t('staff.saveChanges')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -325,14 +327,14 @@ export default function StaffScreen() {
                 <View style={styles.modalHandleBar} />
               </View>
 
-              <Text style={styles.modalTitle}>Add New Staff Member</Text>
+              <Text style={styles.modalTitle}>{t('staff.addNewStaffMember')}</Text>
               <Text style={styles.modalSubtitle}>
-                Create a new account for your team
+                {t('staff.createNewAccount')}
               </Text>
 
               <ScrollView style={styles.addStaffForm}>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Full Name</Text>
+                  <Text style={styles.inputLabel}>{t('staff.fullName')}</Text>
                   <View style={[styles.inputContainer, Shadow.sm]}>
                     <MaterialIcons name="person" size={20} color={Colors.light.textMuted} />
                     <TextInput
@@ -347,7 +349,7 @@ export default function StaffScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email</Text>
+                  <Text style={styles.inputLabel}>{t('common.email')}</Text>
                   <View style={[styles.inputContainer, Shadow.sm]}>
                     <MaterialIcons name="email" size={20} color={Colors.light.textMuted} />
                     <TextInput
@@ -364,7 +366,7 @@ export default function StaffScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Password</Text>
+                  <Text style={styles.inputLabel}>{t('staff.password')}</Text>
                   <View style={[styles.inputContainer, Shadow.sm]}>
                     <MaterialIcons name="lock" size={20} color={Colors.light.textMuted} />
                     <TextInput
@@ -386,7 +388,7 @@ export default function StaffScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Phone (Optional)</Text>
+                  <Text style={styles.inputLabel}>{t('staff.phoneOptional')}</Text>
                   <View style={[styles.inputContainer, Shadow.sm]}>
                     <MaterialIcons name="phone" size={20} color={Colors.light.textMuted} />
                     <TextInput
@@ -401,7 +403,7 @@ export default function StaffScreen() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Role</Text>
+                  <Text style={styles.inputLabel}>{t('staff.role')}</Text>
                   <View style={styles.roleSelector}>
                     <TouchableOpacity
                       style={[
@@ -421,7 +423,7 @@ export default function StaffScreen() {
                           newStaff.role === 'staff' && styles.roleOptionTextActive,
                         ]}
                       >
-                        Staff
+                        {t('staff.staff')}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -442,7 +444,7 @@ export default function StaffScreen() {
                           newStaff.role === 'admin' && styles.roleOptionTextActive,
                         ]}
                       >
-                        Admin
+                        {t('staff.admin')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -458,13 +460,13 @@ export default function StaffScreen() {
                   }}
                   disabled={addingStaff}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.saveBtn, addingStaff && styles.saveBtnDisabled]}
                   onPress={async () => {
                     if (!newStaff.name.trim() || !newStaff.email.trim() || !newStaff.password) {
-                      Alert.alert('Error', 'Please fill in all required fields');
+                      Alert.alert(t('common.error'), t('staff.fillRequiredFields'));
                       return;
                     }
                     setAddingStaff(true);
@@ -481,14 +483,14 @@ export default function StaffScreen() {
                       });
 
                       if (response.success) {
-                        Alert.alert('Success', 'Staff member added successfully');
+                        Alert.alert(t('common.success'), t('staff.staffAdded'));
                         setNewStaff({ name: '', email: '', password: '', phone: '', role: 'staff' });
                         setAddStaffModalVisible(false);
                         await refreshUser();
                         fetchUsers();
                       }
                     } catch (err) {
-                      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to add staff member');
+                      Alert.alert(t('common.error'), err instanceof Error ? err.message : 'Failed to add staff member');
                     } finally {
                       setAddingStaff(false);
                     }
@@ -498,7 +500,7 @@ export default function StaffScreen() {
                   {addingStaff ? (
                     <ActivityIndicator size="small" color={Colors.light.textInverse} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Add Staff Member</Text>
+                    <Text style={styles.saveBtnText}>{t('staff.addNewStaffMember')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

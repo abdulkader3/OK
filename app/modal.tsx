@@ -4,6 +4,7 @@ import { recordPayment, RecordPaymentData } from '@/services/paymentService';
 import { contactsApi } from '@/src/services/contacts';
 import { generateIdempotencyKey } from '@/utils/generateIdempotencyKey';
 import { usePermissions } from '../src/hooks/usePermissions';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
@@ -26,6 +27,7 @@ export default function RecordPaymentModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string; contactId?: string; settleAmount?: string }>();
   const { canCreateLedger, canRecordPayment } = usePermissions();
+  const { t } = useLanguage();
   
   const ledgerId = params.ledgerId;
   const contactId = params.contactId;
@@ -46,14 +48,14 @@ export default function RecordPaymentModal() {
 
   useEffect(() => {
     if (!ledgerId && !canCreateLedger) {
-      Alert.alert('Permission Required', 'You do not have permission to create ledgers.');
+      Alert.alert(t('staff.permissionRequired'), t('staff.noPermissionManageStaff'));
       router.back();
     }
   }, [canCreateLedger, ledgerId, router]);
 
   useEffect(() => {
     if (ledgerId && !canRecordPayment) {
-      Alert.alert('Permission Required', 'You do not have permission to record payments.');
+      Alert.alert(t('staff.permissionRequired'), t('staff.noPermissionManageStaff'));
       router.back();
     }
   }, [canRecordPayment, ledgerId, router]);
@@ -88,11 +90,11 @@ export default function RecordPaymentModal() {
 
   const handleCreateLedger = async () => {
     if (!counterpartyName.trim()) {
-      Alert.alert('Error', 'Please enter a counterparty name');
+      Alert.alert(t('common.error'), t('modal.pleaseEnterName'));
       return;
     }
     if (!initialAmount || parseFloat(initialAmount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert(t('common.error'), t('modal.pleaseEnterValidAmount'));
       return;
     }
 
@@ -106,13 +108,13 @@ export default function RecordPaymentModal() {
         initialAmount: parseFloat(initialAmount),
         notes: notes.trim() || undefined,
       });
-      Alert.alert('Success', 'Ledger created successfully', [
+      Alert.alert(t('common.success'), t('modal.ledgerCreated'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create ledger';
       setError(message);
-      Alert.alert('Error', message);
+      Alert.alert(t('common.error'), message);
     } finally {
       setLoading(false);
     }
@@ -120,13 +122,13 @@ export default function RecordPaymentModal() {
 
   const handleRecordPayment = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid payment amount');
+      Alert.alert(t('common.error'), t('modal.pleaseEnterValidAmount'));
       return;
     }
 
     const parsedAmount = parseFloat(amount);
     if (parsedAmount > outstandingBalance) {
-      Alert.alert('Error', 'Payment amount cannot exceed outstanding balance');
+      Alert.alert(t('common.error'), t('modal.paymentExceedBalance'));
       return;
     }
 
@@ -146,18 +148,18 @@ export default function RecordPaymentModal() {
       const result = await recordPayment(ledgerId!, paymentData, idempotencyKey);
       
       if (result.idempotent) {
-        Alert.alert('Info', 'This payment was already recorded (idempotent response)');
+        Alert.alert('Info', t('modal.idempotentResponse'));
       } else {
         Alert.alert(
-          'Success',
-          `Payment of $${parsedAmount.toFixed(2)} recorded successfully!\n\nRecorded by: ${result.payment.recordedBy.name}\nNew balance: $${result.payment.newOutstanding.toFixed(2)}`,
+          t('common.success'),
+          `${t('modal.paymentRecorded')}\n\nRecorded by: ${result.payment.recordedBy.name}\n${t('modal.newBalance')} $${result.payment.newOutstanding.toFixed(2)}`,
           [{ text: 'OK', onPress: () => router.back() }]
         );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to record payment';
       setError(message);
-      Alert.alert('Error', message);
+      Alert.alert(t('common.error'), message);
     } finally {
       setLoading(false);
     }
@@ -165,7 +167,7 @@ export default function RecordPaymentModal() {
 
   const handleCreateContact = async () => {
     if (!contactName.trim()) {
-      Alert.alert('Error', 'Please enter a contact name');
+      Alert.alert(t('common.error'), t('modal.pleaseEnterContactName'));
       return;
     }
 
@@ -187,13 +189,13 @@ export default function RecordPaymentModal() {
         tags: tags.length > 0 ? tags : undefined,
       });
 
-      Alert.alert('Success', 'Contact created successfully', [
+      Alert.alert(t('common.success'), t('modal.contactCreated'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create contact';
       setError(message);
-      Alert.alert('Error', message);
+      Alert.alert(t('common.error'), message);
     } finally {
       setLoading(false);
     }
@@ -227,7 +229,7 @@ export default function RecordPaymentModal() {
             onPress={() => setMode('create')}
           >
             <Text style={[styles.modeBtnText, mode === 'create' && styles.modeBtnTextActive]}>
-              New Ledger
+              {t('modal.newLedger')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -235,7 +237,7 @@ export default function RecordPaymentModal() {
             onPress={() => setMode('payment')}
           >
             <Text style={[styles.modeBtnText, mode === 'payment' && styles.modeBtnTextActive]}>
-              Record Payment
+              {t('modal.recordPayment')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -243,7 +245,7 @@ export default function RecordPaymentModal() {
             onPress={() => setMode('contact')}
           >
             <Text style={[styles.modeBtnText, mode === 'contact' && styles.modeBtnTextActive]}>
-              New Contact
+              {t('modal.newContact')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -255,17 +257,17 @@ export default function RecordPaymentModal() {
       >
         {/* Header */}
         <Text style={styles.title}>
-          {mode === 'contact' ? 'New Contact' : mode === 'create' ? 'Create Ledger' : 'Record Payment'}
+          {mode === 'contact' ? t('modal.newContact') : mode === 'create' ? t('modal.createLedger') : t('modal.recordPayment')}
         </Text>
 
         {mode === 'payment' && outstandingBalance > 0 && (
           <>
             <Text style={styles.outstandingLabel}>
-              Outstanding Balance:{' '}
+              {t('modal.outstandingBalance')}{' '}
               <Text style={styles.outstandingAmount}>${outstandingBalance.toFixed(2)}</Text>
             </Text>
             <Text style={styles.helpText}>
-              Record partial payment — outstanding will reduce automatically.
+              {t('modal.partialPaymentHelp')}
             </Text>
           </>
         )}
@@ -282,7 +284,7 @@ export default function RecordPaymentModal() {
           <>
             {/* Ledger Type */}
             <View style={styles.section}>
-              <Text style={styles.label}>Type</Text>
+              <Text style={styles.label}>{t('common.type')}</Text>
               <View style={styles.typeRow}>
                 <TouchableOpacity
                   style={[
@@ -302,7 +304,7 @@ export default function RecordPaymentModal() {
                       ledgerType === 'owes_me' && styles.typeBtnTextActive,
                     ]}
                   >
-                    They Owe Me
+                    {t('modal.theyOweMe')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -323,7 +325,7 @@ export default function RecordPaymentModal() {
                       ledgerType === 'i_owe' && styles.typeBtnTextActive,
                     ]}
                   >
-                    I Owe Them
+                    {t('modal.iOweThem')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -331,10 +333,10 @@ export default function RecordPaymentModal() {
 
             {/* Counterparty Name */}
             <View style={styles.section}>
-              <Text style={styles.label}>Name</Text>
+              <Text style={styles.label}>{t('common.name')}</Text>
               <TextInput
                 style={[styles.input, Shadow.sm]}
-                placeholder="Enter name or company"
+                placeholder={t('modal.enterNameOrCompany')}
                 placeholderTextColor={Colors.light.textMuted}
                 value={counterpartyName}
                 onChangeText={setCounterpartyName}
@@ -343,7 +345,7 @@ export default function RecordPaymentModal() {
 
             {/* Initial Amount */}
             <View style={styles.section}>
-              <Text style={styles.label}>Initial Amount</Text>
+              <Text style={styles.label}>{t('modal.initialAmount')}</Text>
               <View style={[styles.amountInputContainer, Shadow.sm]}>
                 <Text style={styles.dollarSign}>$</Text>
                 <TextInput
@@ -359,10 +361,10 @@ export default function RecordPaymentModal() {
 
             {/* Notes */}
             <View style={styles.section}>
-              <Text style={styles.label}>Notes (Optional)</Text>
+              <Text style={styles.label}>{t('modal.notesOptional')}</Text>
               <TextInput
                 style={[styles.noteInput, Shadow.sm]}
-                placeholder="Add notes..."
+                placeholder={t('modal.addNotes')}
                 placeholderTextColor={Colors.light.textMuted}
                 multiline
                 numberOfLines={3}
@@ -379,7 +381,7 @@ export default function RecordPaymentModal() {
           <>
             {/* Amount Input */}
             <View style={styles.section}>
-              <Text style={styles.label}>Payment Amount</Text>
+              <Text style={styles.label}>{t('modal.paymentAmount')}</Text>
               <View style={[styles.amountInputContainer, Shadow.sm]}>
                 <Text style={styles.dollarSign}>$</Text>
                 <TextInput
@@ -419,9 +421,9 @@ export default function RecordPaymentModal() {
               </View>
             </View>
 
-            {/* Method */}
+{/* Method */}
             <View style={styles.section}>
-              <Text style={styles.label}>Method</Text>
+              <Text style={styles.label}>{t('modal.method')}</Text>
               <View style={styles.methodRow}>
                 {(['cash', 'bank', 'other'] as const).map((method) => (
                   <TouchableOpacity
@@ -453,19 +455,19 @@ export default function RecordPaymentModal() {
                         paymentMethod === method && styles.methodBtnTextActive,
                       ]}
                     >
-                      {method.charAt(0).toUpperCase() + method.slice(1)}
+                      {method === 'cash' ? t('modal.cash') : method === 'bank' ? t('modal.bank') : t('modal.other')}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            {/* Note */}
+{/* Note */}
             <View style={styles.section}>
-              <Text style={styles.label}>Note (Optional)</Text>
+              <Text style={styles.label}>{t('modal.noteOptional')}</Text>
               <TextInput
                 style={[styles.noteInput, Shadow.sm]}
-                placeholder="Add a note about this payment..."
+                placeholder={t('modal.addNotePayment')}
                 placeholderTextColor={Colors.light.textMuted}
                 multiline
                 numberOfLines={3}
@@ -475,9 +477,9 @@ export default function RecordPaymentModal() {
               />
             </View>
 
-            {/* Receipt Upload */}
+{/* Receipt Upload */}
             <View style={styles.section}>
-              <Text style={styles.label}>Receipt (Optional)</Text>
+              <Text style={styles.label}>{t('modal.receiptOptional')}</Text>
               <TouchableOpacity
                 style={[styles.receiptBtn, Shadow.sm, receiptAttached && styles.receiptBtnActive]}
                 onPress={() => setReceiptAttached(!receiptAttached)}
@@ -494,7 +496,7 @@ export default function RecordPaymentModal() {
                     receiptAttached && styles.receiptBtnTextActive,
                   ]}
                 >
-                  {receiptAttached ? 'Receipt attached' : 'Attach receipt'}
+                  {receiptAttached ? t('modal.receiptAttached') : t('modal.attachReceipt')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -502,21 +504,21 @@ export default function RecordPaymentModal() {
         )}
 
         {mode === 'payment' && outstandingBalance <= 0 && (
-          <View style={styles.settledContainer}>
+<View style={styles.settledContainer}>
             <MaterialIcons name="check-circle" size={48} color={Colors.light.accent} />
-            <Text style={styles.settledText}>This ledger is fully settled!</Text>
+            <Text style={styles.settledText}>{t('modal.ledgerFullySettled')}</Text>
           </View>
         )}
 
         {/* CREATE CONTACT FORM */}
         {mode === 'contact' && (
           <>
-            {/* Name */}
+{/* Name */}
             <View style={styles.section}>
-              <Text style={styles.label}>Name *</Text>
+              <Text style={styles.label}>{t('common.name')} *</Text>
               <TextInput
                 style={[styles.textInput, Shadow.sm]}
-                placeholder="Enter contact name"
+                placeholder={t('modal.enterContactName')}
                 placeholderTextColor={Colors.light.textMuted}
                 value={contactName}
                 onChangeText={setContactName}
@@ -524,12 +526,12 @@ export default function RecordPaymentModal() {
               />
             </View>
 
-            {/* Email */}
+{/* Email */}
             <View style={styles.section}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{t('common.email')}</Text>
               <TextInput
                 style={[styles.textInput, Shadow.sm]}
-                placeholder="Enter email address"
+                placeholder={t('modal.enterEmail')}
                 placeholderTextColor={Colors.light.textMuted}
                 value={contactEmail}
                 onChangeText={setContactEmail}
@@ -538,12 +540,12 @@ export default function RecordPaymentModal() {
               />
             </View>
 
-            {/* Phone */}
+{/* Phone */}
             <View style={styles.section}>
-              <Text style={styles.label}>Phone</Text>
+              <Text style={styles.label}>{t('common.phone')}</Text>
               <TextInput
                 style={[styles.textInput, Shadow.sm]}
-                placeholder="Enter phone number"
+                placeholder={t('modal.enterPhone')}
                 placeholderTextColor={Colors.light.textMuted}
                 value={contactPhone}
                 onChangeText={setContactPhone}
@@ -551,24 +553,24 @@ export default function RecordPaymentModal() {
               />
             </View>
 
-            {/* Address */}
+{/* Address */}
             <View style={styles.section}>
-              <Text style={styles.label}>Address</Text>
+              <Text style={styles.label}>{t('common.address')}</Text>
               <TextInput
                 style={[styles.textInput, Shadow.sm]}
-                placeholder="Enter address"
+                placeholder={t('modal.enterAddress')}
                 placeholderTextColor={Colors.light.textMuted}
                 value={contactAddress}
                 onChangeText={setContactAddress}
               />
             </View>
 
-            {/* Notes */}
+{/* Notes */}
             <View style={styles.section}>
-              <Text style={styles.label}>Notes</Text>
+              <Text style={styles.label}>{t('common.notes')}</Text>
               <TextInput
                 style={[styles.noteInput, Shadow.sm]}
-                placeholder="Add notes about this contact..."
+                placeholder={t('modal.addNotesContact')}
                 placeholderTextColor={Colors.light.textMuted}
                 multiline
                 numberOfLines={3}
@@ -578,12 +580,12 @@ export default function RecordPaymentModal() {
               />
             </View>
 
-            {/* Tags */}
+{/* Tags */}
             <View style={styles.section}>
-              <Text style={styles.label}>Tags</Text>
+              <Text style={styles.label}>{t('common.tags')}</Text>
               <TextInput
                 style={[styles.textInput, Shadow.sm]}
-                placeholder="friend, work, family (comma separated)"
+                placeholder={t('modal.friendWorkFamily')}
                 placeholderTextColor={Colors.light.textMuted}
                 value={contactTags}
                 onChangeText={setContactTags}
@@ -610,7 +612,7 @@ export default function RecordPaymentModal() {
             <>
               <MaterialIcons name="check" size={22} color={Colors.light.textInverse} />
               <Text style={styles.confirmBtnText}>
-                {mode === 'contact' ? 'Create Contact' : mode === 'create' ? 'Create Ledger' : 'Confirm Payment'}
+                {mode === 'contact' ? t('modal.createContact') : mode === 'create' ? t('modal.createLedger') : t('modal.confirmPayment')}
               </Text>
             </>
           )}
@@ -622,7 +624,7 @@ export default function RecordPaymentModal() {
           activeOpacity={0.7}
           onPress={() => router.back()}
         >
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={styles.cancelText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

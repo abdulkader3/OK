@@ -3,6 +3,7 @@ import { FABButton } from '@/components/fab-button';
 import { FilterPills } from '@/components/filter-pills';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getLedgers, Ledger } from '@/services/ledgerService';
+import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,6 +14,7 @@ type FilterType = 'All' | 'Lent' | 'Borrowed' | 'Overdue' | 'Settled';
 
 export default function LedgerScreen() {
     const router = useRouter();
+    const { t } = useLanguage();
     const [searchText, setSearchText] = useState('');
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
     const [loading, setLoading] = useState(true);
@@ -60,10 +62,10 @@ export default function LedgerScreen() {
         const isOverdue = dueDate && dueDate < now && ledger.outstandingBalance > 0;
         const isPaid = ledger.outstandingBalance <= 0;
 
-        if (isPaid) return { label: 'Settled', type: 'paid' as const };
+        if (isPaid) return { label: t('ledger.filter.settled'), type: 'paid' as const };
         if (isOverdue) {
             const daysOverdue = Math.floor((now.getTime() - dueDate!.getTime()) / (1000 * 60 * 60 * 24));
-            return { label: `Overdue by ${daysOverdue} days`, type: 'overdue' as const };
+            return { label: `${t('ledgerDetail.overdueBy')} ${daysOverdue} ${t('ledgerDetail.days')}`, type: 'overdue' as const };
         }
         return { label: 'Active', type: 'active' as const };
     };
@@ -105,10 +107,10 @@ export default function LedgerScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={{ width: 24 }} />
-                    <Text style={styles.headerTitle}>Debt Ledger</Text>
+                    <Text style={styles.headerTitle}>{t('ledger.title')}</Text>
                     <TouchableOpacity style={styles.exportBtn} activeOpacity={0.7}>
                         <MaterialIcons name="file-download" size={18} color={Colors.light.primaryMuted} />
-                        <Text style={styles.exportText}>Export</Text>
+                        <Text style={styles.exportText}>{t('ledger.export')}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -124,7 +126,7 @@ export default function LedgerScreen() {
                         <MaterialIcons name="search" size={20} color={Colors.light.textMuted} />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search debts..."
+                            placeholder={t('ledger.searchPlaceholder')}
                             placeholderTextColor={Colors.light.textMuted}
                             value={searchText}
                             onChangeText={setSearchText}
@@ -139,7 +141,7 @@ export default function LedgerScreen() {
                     {/* Filter Pills */}
                     <View style={styles.filterRow}>
                         <FilterPills 
-                            filters={['All', 'Lent', 'Borrowed', 'Overdue', 'Settled']}
+                            filters={[t('ledger.filter.all'), t('ledger.filter.lent'), t('ledger.filter.borrowed'), t('ledger.filter.overdue'), t('ledger.filter.settled')]}
                             onFilterChange={(filter) => setActiveFilter(filter as FilterType)}
                         />
                         <TouchableOpacity 
@@ -173,7 +175,7 @@ export default function LedgerScreen() {
                         <View style={styles.errorContainer}>
                             <Text style={styles.errorText}>{error}</Text>
                             <TouchableOpacity onPress={fetchLedgers}>
-                                <Text style={styles.retryText}>Tap to retry</Text>
+                                <Text style={styles.retryText}>{t('ledger.tapToRetry')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -187,7 +189,7 @@ export default function LedgerScreen() {
 
                     {/* Section Title */}
                     {!loading && !error && (
-                        <Text style={styles.sectionTitle}>Recent Entries</Text>
+                        <Text style={styles.sectionTitle}>{t('ledger.recentEntries')}</Text>
                     )}
 
                     {/* Debt Entries */}
@@ -197,8 +199,8 @@ export default function LedgerScreen() {
                     {!loading && !error && ledgers.length === 0 && (
                         <View style={styles.emptyContainer}>
                             <MaterialIcons name="inbox" size={48} color={Colors.light.textMuted} />
-                            <Text style={styles.emptyText}>No ledgers found</Text>
-                            <Text style={styles.emptySubtext}>Create your first ledger to get started</Text>
+                            <Text style={styles.emptyText}>{t('ledger.noLedgersFound')}</Text>
+                            <Text style={styles.emptySubtext}>{t('ledger.createFirstLedger')}</Text>
                         </View>
                     )}
                 </ScrollView>
@@ -219,7 +221,7 @@ export default function LedgerScreen() {
                     <Pressable style={styles.dateModalOverlay} onPress={() => setShowDateFilter(false)}>
                         <Pressable style={[styles.dateModalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
                             <View style={styles.dateModalHeader}>
-                                <Text style={styles.dateModalTitle}>Filter by Due Date</Text>
+                                <Text style={styles.dateModalTitle}>{t('ledger.filterByDueDate')}</Text>
                                 <TouchableOpacity onPress={() => setShowDateFilter(false)}>
                                     <MaterialIcons name="close" size={24} color={Colors.light.text} />
                                 </TouchableOpacity>
@@ -227,7 +229,7 @@ export default function LedgerScreen() {
 
                             <View style={styles.dateModalBody}>
                                 <View style={styles.dateInputGroup}>
-                                    <Text style={styles.dateLabel}>From Date</Text>
+                                    <Text style={styles.dateLabel}>{t('ledger.fromDate')}</Text>
                                     <TextInput
                                         style={[styles.dateInput, Shadow.sm]}
                                         placeholder="YYYY-MM-DD"
@@ -238,7 +240,7 @@ export default function LedgerScreen() {
                                 </View>
 
                                 <View style={styles.dateInputGroup}>
-                                    <Text style={styles.dateLabel}>To Date</Text>
+                                    <Text style={styles.dateLabel}>{t('ledger.toDate')}</Text>
                                     <TextInput
                                         style={[styles.dateInput, Shadow.sm]}
                                         placeholder="YYYY-MM-DD"
@@ -254,13 +256,13 @@ export default function LedgerScreen() {
                                     style={styles.dateClearBtn}
                                     onPress={() => { setDateFrom(''); setDateTo(''); }}
                                 >
-                                    <Text style={styles.dateClearText}>Clear</Text>
+                                    <Text style={styles.dateClearText}>{t('ledger.clear')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={styles.dateApplyBtn}
                                     onPress={() => setShowDateFilter(false)}
                                 >
-                                    <Text style={styles.dateApplyText}>Apply</Text>
+                                    <Text style={styles.dateApplyText}>{t('ledger.apply')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </Pressable>
