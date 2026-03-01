@@ -19,9 +19,29 @@ class ApiClient {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+    console.log('[API] Base URL:', this.baseUrl);
+  }
+
+  async checkHealth(): Promise<boolean> {
+    try {
+      console.log('[API] Checking health at:', `${this.baseUrl}/health`);
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await response.json();
+      console.log('[API] Health response:', data);
+      return response.ok;
+    } catch (error) {
+      console.error('[API] Health check failed:', error);
+      return false;
+    }
   }
 
   private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
+    const url = `${this.baseUrl}${endpoint}`;
+    console.log('[API] Request:', options.method || 'GET', url);
+    
     const { idempotencyKey, ...fetchOptions } = options;
 
     const headers: HeadersInit = {
@@ -32,11 +52,13 @@ class ApiClient {
       (headers as Record<string, string>)['Idempotency-Key'] = idempotencyKey;
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(url, {
       ...fetchOptions,
       headers,
       credentials: 'include',
     });
+    
+    console.log('[API] Response:', response.status, response.statusText);
 
     const data = await response.json().catch(() => ({ success: false, message: 'Request failed' }));
 

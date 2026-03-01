@@ -37,8 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const response = await apiClient.get<{ user: User }>('/api/auth/me');
-      if (response.success && response.data?.user) {
+      const response = await Promise.race([
+        apiClient.get<{ user: User }>('/api/auth/me'),
+        new Promise<null>((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        )
+      ]);
+      
+      if (response && response.success && response.data?.user) {
         setUser(response.data.user);
       }
     } catch {
