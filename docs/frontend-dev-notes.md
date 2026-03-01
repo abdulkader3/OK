@@ -17,8 +17,8 @@ The app uses `expo-constants` to read the API URL from `app.json`:
 ```
 
 **Environment Values:**
-- Development: `http://localhost:4000`
-- Production: `https://ok-backend.onrender.com`
+- Production (default): `https://ok-backend.onrender.com`
+- Development: Override with `.env` or local server
 
 ### Overriding in Development
 
@@ -28,7 +28,7 @@ REACT_APP_API_URL=http://localhost:4000
 ```
 
 The API client checks in this order:
-1. `Constants.expoConfig.extra.API_URL` (from app.json)
+1. `Constants.expoConfig.extra.API_URL` (from app.json) - default: `https://ok-backend.onrender.com`
 2. `process.env.REACT_APP_API_URL` (from .env)
 3. Fallback: `http://localhost:4000`
 
