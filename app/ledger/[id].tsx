@@ -352,15 +352,21 @@ const handleDelete = () => {
               <MaterialIcons name="receipt-long" size={40} color={Colors.light.textMuted} />
               <Text style={styles.emptyText}>No payments yet</Text>
             </View>
-          ) : (
+) : (
             payments.map((payment) => (
               <View key={payment._id} style={[styles.paymentCard, Shadow.sm]}>
                 <View style={styles.paymentHeader}>
                   <View style={styles.paymentAmountContainer}>
-                    <Text style={styles.paymentAmount}>
-                      -${payment.amount.toFixed(2)}
+                    <Text style={[
+                      styles.paymentAmount,
+                      payment.type === 'adjustment' && styles.paymentAmountPositive
+                    ]}>
+                      {payment.type === 'adjustment' ? '+' : '-'}${payment.amount.toFixed(2)}
                     </Text>
-                    <View style={[styles.paymentTypeBadge, styles.paymentTypeBadgePayment]}>
+                    <View style={[
+                      styles.paymentTypeBadge,
+                      payment.type === 'adjustment' ? styles.paymentTypeBadgeAdjustment : styles.paymentTypeBadgePayment
+                    ]}>
                       <Text style={styles.paymentTypeText}>
                         {payment.type.charAt(0).toUpperCase() + payment.type.slice(1)}
                       </Text>
@@ -895,10 +901,13 @@ recordPaymentText: {
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  paymentAmount: {
+paymentAmount: {
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
     color: Colors.light.text,
+  },
+  paymentAmountPositive: {
+    color: Colors.light.accentTeal,
   },
   paymentTypeBadge: {
     paddingHorizontal: Spacing.sm,
@@ -907,6 +916,9 @@ recordPaymentText: {
   },
   paymentTypeBadgePayment: {
     backgroundColor: Colors.light.accent + '20',
+  },
+  paymentTypeBadgeAdjustment: {
+    backgroundColor: Colors.light.accentTeal + '20',
   },
   paymentTypeText: {
     fontSize: FontSize.xs,
