@@ -110,7 +110,7 @@ export default function TabLayout() {
         options={{
           title: "Staff",
           // Hide tab for non-owners
-          tabBarStyle: user?.role !== "owner" ? { display: "none" } : undefined,
+          tabBarStyle: user?.role !== "owner" ? { display: "none" } : null,
           tabBarIcon: ({ color, focused }) => (
             <View>
               <MaterialIcons name="badge" size={24} color={color} />
