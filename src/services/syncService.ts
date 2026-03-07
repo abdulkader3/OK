@@ -1,4 +1,9 @@
 import { generateIdempotencyKey } from '../utils/generateIdempotencyKey';
+import Constants from 'expo-constants';
+
+const { API_URL } = Constants.expoConfig?.extra || {};
+
+const BASE_URL = API_URL || 'http://192.168.0.104:4000';
 
 const STORAGE_KEY = 'ok_offline_queue';
 
@@ -180,23 +185,8 @@ export function clearQueue(): void {
   saveQueue([]);
 }
 
-let cachedBaseUrl: string | null = null;
-
 function getBaseUrl(): string {
-  if (cachedBaseUrl) return cachedBaseUrl;
-  
-  // Use a simple approach for Expo
-  if (typeof window !== 'undefined') {
-    // Check for global or inline config
-    const globalConfig = (global as unknown as { __APP_CONFIG__?: { API_URL?: string } }).__APP_CONFIG__;
-    if (globalConfig?.API_URL) {
-      cachedBaseUrl = globalConfig.API_URL;
-      return cachedBaseUrl;
-    }
-  }
-  
-  cachedBaseUrl = 'http://localhost:4000';
-  return cachedBaseUrl;
+  return BASE_URL;
 }
 
 export function onNetworkRestore(callback: () => void): () => void {

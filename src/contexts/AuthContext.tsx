@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import apiClient from '../services/apiClient';
 
 const TOKEN_KEY = 'access_token';
+const USER_KEY = 'user_data';
 
 interface User {
   _id: string;
@@ -52,9 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (response && response.success && response.data?.user) {
         setUser(response.data.user);
+        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.data.user));
       }
     } catch {
-      setUser(null);
+      // Silent fail - keep cached user if available
     }
   };
 
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await SecureStore.setItemAsync(TOKEN_KEY, response.data.tokens.access_token);
         apiClient.setAuthToken(response.data.tokens.access_token);
       }
+      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.data.user));
       setUser(response.data.user);
     } else {
       throw new Error(response.message || 'Login failed');
@@ -81,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn('Logout API call failed');
     } finally {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await SecureStore.deleteItemAsync(USER_KEY);
       apiClient.clearAuthToken();
       setUser(null);
     }
@@ -92,6 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
         if (token) {
           apiClient.setAuthToken(token);
+          const cachedUser = await SecureStore.getItemAsync(USER_KEY);
+          if (cachedUser) {
+            setUser(JSON.parse(cachedUser));
+          }
         }
       } catch (e) {
         console.warn('Failed to load token:', e);
