@@ -78,6 +78,27 @@ function AuthNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="salary/pay"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="salary/index"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="salary/my-salary"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

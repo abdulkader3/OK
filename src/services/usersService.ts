@@ -19,6 +19,7 @@ export interface User {
   active: boolean;
   phone?: string;
   company?: string;
+  monthlySalary?: number;
   createdAt: string;
 }
 

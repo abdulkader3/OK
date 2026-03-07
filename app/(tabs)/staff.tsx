@@ -174,9 +174,18 @@ export default function StaffScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('staff.title')}</Text>
           {(canManageStaff || isOwner) ? (
-            <TouchableOpacity activeOpacity={0.7}>
-              <MaterialIcons name="settings" size={24} color={Colors.light.text} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={() => router.push('/salary/pay')}
+                style={{ marginRight: Spacing.md }}
+              >
+                <MaterialIcons name="payments" size={24} color={Colors.light.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.7}>
+                <MaterialIcons name="settings" size={24} color={Colors.light.text} />
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={{ width: 24 }} />
           )}

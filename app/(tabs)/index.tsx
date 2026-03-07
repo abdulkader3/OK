@@ -6,6 +6,7 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { getDashboardSummary, DashboardLedger } from '@/services/dashboardService';
 import { getQueueLength, flushQueue } from '@/services/syncService';
 import { getAllBigBosses, getBigBossSummary } from '@/src/services/bigBossService';
+import { getSalarySummary, SalarySummary } from '@/src/services/salaryService';
 import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/src/contexts/LanguageContext';
@@ -36,6 +37,10 @@ export default function DashboardScreen() {
   const [bigBossSummary, setBigBossSummary] = useState<{
     totalBigBosses: number;
     totalPaid: number;
+  } | null>(null);
+  const [salarySummary, setSalarySummary] = useState<{
+    totalPaid: number;
+    totalPayments: number;
   } | null>(null);
 
   useEffect(() => {
@@ -88,13 +93,32 @@ export default function DashboardScreen() {
         getDashboardSummary(),
         getBigBossSummary(),
       ]);
+      
       setSummary(data);
+      
       if (bigBossSummaryData) {
         setBigBossSummary({
           totalBigBosses: bigBossSummaryData.totalBigBosses,
           totalPaid: bigBossSummaryData.totalPaid,
         });
       }
+      
+      // Only fetch salary data if user is owner
+      if (user?.role === 'owner') {
+        try {
+          const salarySummaryData = await getSalarySummary();
+          if (salarySummaryData) {
+            setSalarySummary({
+              totalPaid: salarySummaryData.totalPaid,
+              totalPayments: salarySummaryData.totalPayments,
+            });
+          }
+        } catch (salaryError) {
+          // Silently handle salary errors for non-owners
+          console.log('Salary summary not available for non-owners');
+        }
+      }
+      
       setPendingCount(getQueueLength());
     } catch (error) {
       // Silently handle auth errors - will redirect to login
@@ -103,7 +127,7 @@ export default function DashboardScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.role]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -244,14 +268,17 @@ export default function DashboardScreen() {
                 amountColor={Colors.light.primary}
                 onPress={() => router.push('/bigboss')}
               />
-              <SummaryCard
-                icon="person"
-                label={t('dashboard.staffManagement')}
-                amount="0"
-                backgroundColor={Colors.light.cardPending}
-                iconColor={Colors.light.accent}
-                amountColor={Colors.light.accent}
-              />
+              {user?.role === 'owner' && (
+                <SummaryCard
+                  icon="payments"
+                  label={t('salary.title')}
+                  amount={formatCurrency(salarySummary?.totalPaid || 0)}
+                  backgroundColor={Colors.light.cardPending}
+                  iconColor={Colors.light.accent}
+                  amountColor={Colors.light.accent}
+                  onPress={() => router.push('/salary')}
+                />
+              )}
             </View>
           </View>
 
