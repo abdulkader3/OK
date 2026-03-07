@@ -117,6 +117,7 @@ export default function DashboardScreen() {
         amount={formatCurrency(ledger.outstandingBalance)}
         isPositive={isPositive}
         avatarColor={isPositive ? Colors.light.accentTeal : Colors.light.accentOrange}
+        onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: ledger._id } })}
       />
     );
   };

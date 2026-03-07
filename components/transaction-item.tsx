@@ -1,6 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface TransactionItemProps {
     name: string;
@@ -9,6 +9,7 @@ interface TransactionItemProps {
     amount: string;
     isPositive?: boolean;
     avatarColor?: string;
+    onPress?: () => void;
 }
 
 export function TransactionItem({
@@ -18,9 +19,10 @@ export function TransactionItem({
     amount,
     isPositive = true,
     avatarColor = Colors.light.primaryMuted,
+    onPress,
 }: TransactionItemProps) {
-    return (
-        <View style={styles.container}>
+    const content = (
+        <>
             <View style={[styles.avatar, { backgroundColor: avatarColor + '20' }]}>
                 <Text style={[styles.avatarText, { color: avatarColor }]}>
                     {name.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -38,6 +40,24 @@ export function TransactionItem({
             >
                 {isPositive ? '+' : '-'}{amount}
             </Text>
+        </>
+    );
+
+    if (onPress) {
+        return (
+            <TouchableOpacity 
+                style={styles.container} 
+                onPress={onPress}
+                activeOpacity={0.7}
+            >
+                {content}
+            </TouchableOpacity>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            {content}
         </View>
     );
 }
