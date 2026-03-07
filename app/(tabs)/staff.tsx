@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/src/contexts/LanguageContext';
 import apiClient from '@/src/services/apiClient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +33,7 @@ const PERMISSIONS_LIST: { key: keyof UserPermissions; label: string; description
 ];
 
 export default function StaffScreen() {
+  const router = useRouter();
   const { user: currentUser, refreshUser } = useAuth();
   const { t } = useLanguage();
   const [users, setUsers] = useState<User[]>([]);
@@ -55,6 +57,33 @@ export default function StaffScreen() {
 
   const canManageStaff = currentUser?.permissions?.canManageStaff ?? false;
   const isOwner = currentUser?.role === 'owner';
+  const isAdmin = currentUser?.role === 'admin';
+  const isStaff = currentUser?.role === 'staff';
+
+  useEffect(() => {
+    // No redirect needed - we show permission denied UI below
+  }, []);
+
+  if (isStaff) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.permissionDeniedContainer}>
+          <MaterialIcons name="admin-panel-settings" size={64} color={Colors.light.primaryMuted} />
+          <Text style={styles.permissionDeniedTitle}>Admin Only</Text>
+          <Text style={styles.permissionDeniedText}>
+            This feature is available for admins and owners only.{'\n'}
+            Contact your administrator if you need access.
+          </Text>
+          <TouchableOpacity 
+            style={styles.permissionDeniedButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.permissionDeniedButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -525,6 +554,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  permissionDeniedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xxl,
+    gap: Spacing.md,
+  },
+  permissionDeniedTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.primaryMuted,
+    textAlign: 'center',
+  },
+  permissionDeniedText: {
+    fontSize: FontSize.md,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  permissionDeniedButton: {
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    backgroundColor: Colors.light.primary,
+    borderRadius: BorderRadius.lg,
+  },
+  permissionDeniedButtonText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.textInverse,
   },
   header: {
     flexDirection: 'row',
