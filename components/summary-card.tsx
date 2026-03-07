@@ -1,7 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface SummaryCardProps {
     icon: keyof typeof MaterialIcons.glyphMap;
@@ -10,6 +10,7 @@ interface SummaryCardProps {
     backgroundColor?: string;
     iconColor?: string;
     amountColor?: string;
+    onPress?: () => void;
 }
 
 export function SummaryCard({
@@ -19,14 +20,33 @@ export function SummaryCard({
     backgroundColor = Colors.light.surface,
     iconColor = Colors.light.primaryMuted,
     amountColor = Colors.light.text,
+    onPress,
 }: SummaryCardProps) {
-    return (
-        <View style={[styles.card, { backgroundColor }, Shadow.md]}>
+    const content = (
+        <>
             <View style={[styles.iconContainer, { backgroundColor: iconColor + '18' }]}>
                 <MaterialIcons name={icon} size={22} color={iconColor} />
             </View>
             <Text style={[styles.label, { color: Colors.light.textSecondary }]}>{label}</Text>
             <Text style={[styles.amount, { color: amountColor }]}>{amount}</Text>
+        </>
+    );
+
+    if (onPress) {
+        return (
+            <TouchableOpacity 
+                style={[styles.card, { backgroundColor }, Shadow.md]} 
+                onPress={onPress}
+                activeOpacity={0.7}
+            >
+                {content}
+            </TouchableOpacity>
+        );
+    }
+
+    return (
+        <View style={[styles.card, { backgroundColor }, Shadow.md]}>
+            {content}
         </View>
     );
 }

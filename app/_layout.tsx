@@ -57,6 +57,27 @@ function AuthNavigator() {
       />
       <Stack.Screen name="audit" />
       <Stack.Screen name="settings" />
+      <Stack.Screen
+        name="bigboss/index"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="bigboss/[id]"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="bigboss/bills"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

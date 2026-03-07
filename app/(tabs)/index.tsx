@@ -5,6 +5,7 @@ import { TransactionItem } from '@/components/transaction-item';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getDashboardSummary, DashboardLedger } from '@/services/dashboardService';
 import { getQueueLength, flushQueue } from '@/services/syncService';
+import { getAllBigBosses, getBigBossSummary } from '@/src/services/bigBossService';
 import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/src/contexts/LanguageContext';
@@ -32,6 +33,10 @@ export default function DashboardScreen() {
   const [pendingCount, setPendingCount] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [bigBossSummary, setBigBossSummary] = useState<{
+    totalBigBosses: number;
+    totalPaid: number;
+  } | null>(null);
 
   useEffect(() => {
     setIsOnline(!isOffline);
@@ -79,8 +84,17 @@ export default function DashboardScreen() {
     if (!isAuthenticated) return;
     
     try {
-      const data = await getDashboardSummary();
+      const [data, bigBossSummaryData] = await Promise.all([
+        getDashboardSummary(),
+        getBigBossSummary(),
+      ]);
       setSummary(data);
+      if (bigBossSummaryData) {
+        setBigBossSummary({
+          totalBigBosses: bigBossSummaryData.totalBigBosses,
+          totalPaid: bigBossSummaryData.totalPaid,
+        });
+      }
       setPendingCount(getQueueLength());
     } catch (error) {
       // Silently handle auth errors - will redirect to login
@@ -222,17 +236,18 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.cardRow}>
               <SummaryCard
-                icon="warning"
-                label={t('dashboard.overdue')}
-                amount={String(summary?.overdueCount || 0)}
+                icon="business"
+                label={t('dashboard.bigBossManagement')}
+                amount={formatCurrency(bigBossSummary?.totalPaid || 0)}
                 backgroundColor={Colors.light.cardOverdue}
-                iconColor={Colors.light.error}
-                amountColor={Colors.light.error}
+                iconColor={Colors.light.primary}
+                amountColor={Colors.light.primary}
+                onPress={() => router.push('/bigboss')}
               />
               <SummaryCard
-                icon="schedule"
-                label={t('dashboard.highPriority')}
-                amount={String(summary?.highPriorityCount || 0)}
+                icon="person"
+                label={t('dashboard.staffManagement')}
+                amount="0"
                 backgroundColor={Colors.light.cardPending}
                 iconColor={Colors.light.accent}
                 amountColor={Colors.light.accent}

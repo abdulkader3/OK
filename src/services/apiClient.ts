@@ -91,14 +91,15 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> {
+    const isFormData = body instanceof FormData;
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      headers: {
+      headers: isFormData ? options?.headers : {
         'Content-Type': 'application/json',
         ...options?.headers,
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
     });
   }
 
