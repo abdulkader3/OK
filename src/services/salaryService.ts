@@ -43,12 +43,9 @@ export interface StaffSalaryData {
   staff: StaffMember;
   payments: SalaryPayment[];
   totalPaid: number;
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
+  page: number;
+  limit: number;
+  total: number;
 }
 
 export interface StaffSalarySummary {
@@ -166,9 +163,19 @@ export async function getAllSalaryPayments(filters?: { staffId?: string; year?: 
   return null;
 }
 
-export async function getMySalary(year?: number): Promise<StaffSalaryData | null> {
-  const params = year ? `?year=${year}` : '';
-  const response = await apiClient.get<StaffSalaryData>(`/api/salary/my-salary${params}`);
+export interface GetMySalaryParams {
+  year?: number;
+  page?: number;
+  limit?: number;
+}
+
+export async function getMySalary(params?: GetMySalaryParams): Promise<StaffSalaryData | null> {
+  const queryParts: string[] = [];
+  if (params?.year) queryParts.push(`year=${params.year}`);
+  if (params?.page) queryParts.push(`page=${params.page}`);
+  if (params?.limit) queryParts.push(`limit=${params.limit}`);
+  const queryString = queryParts.length ? `?${queryParts.join('&')}` : '';
+  const response = await apiClient.get<StaffSalaryData>(`/api/salary/my-salary${queryString}`);
   if (response.success && response.data) {
     return response.data;
   }

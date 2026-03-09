@@ -1,4 +1,5 @@
 import { StaffCard } from '@/components/staff-card';
+import StaffAdminPanel from './StaffAdminPanel';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getStaff, updateUserPermissions, updateUserStatus, User, UserPermissions } from '@/services/usersService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,26 +65,7 @@ export default function StaffScreen() {
     // No redirect needed - we show permission denied UI below
   }, []);
 
-  if (isStaff) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.permissionDeniedContainer}>
-          <MaterialIcons name="admin-panel-settings" size={64} color={Colors.light.primaryMuted} />
-          <Text style={styles.permissionDeniedTitle}>Admin Only</Text>
-          <Text style={styles.permissionDeniedText}>
-            This feature is available for admins and owners only.{'\n'}
-            Contact your administrator if you need access.
-          </Text>
-          <TouchableOpacity 
-            style={styles.permissionDeniedButton}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.permissionDeniedButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Staff view is handled inside the main render via StaffAdminPanel to avoid hook-order issues
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -190,6 +172,8 @@ export default function StaffScreen() {
             <View style={{ width: 24 }} />
           )}
         </View>
+
+        {isStaff && <StaffAdminPanel />}
 
         <ScrollView
           showsVerticalScrollIndicator={false}

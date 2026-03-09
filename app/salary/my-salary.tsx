@@ -14,6 +14,8 @@ export default function MySalaryScreen() {
     const { t } = useLanguage();
     
     const [salaryData, setSalaryData] = useState<StaffSalaryData | null>(null);
+    const [yearFilter, setYearFilter] = useState<number | undefined>(undefined);
+    const [years, setYears] = useState<number[]>([]);
     const [summary, setSummary] = useState<SalarySummary | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -22,9 +24,14 @@ export default function MySalaryScreen() {
         try {
             const isOwner = user?.role === 'owner';
             const [salary] = await Promise.all([
-                getMySalary(),
+                getMySalary({ year: yearFilter, page: salaryData?.page ?? 1, limit: salaryData?.limit ?? 10 }),
             ]);
             setSalaryData(salary);
+            // derive available years for filter from fetched payments
+            if (salary?.payments) {
+              const uniq = Array.from(new Set(salary.payments.map(p => p.year))).sort((a, b) => b - a);
+              setYears(uniq);
+            }
             if (isOwner) {
                 const salarySummary = await getSalarySummary();
                 setSummary(salarySummary);
@@ -35,7 +42,7 @@ export default function MySalaryScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [user?.role]);
+    }, [user?.role, yearFilter]);
 
     useEffect(() => {
         fetchData();
@@ -141,6 +148,28 @@ export default function MySalaryScreen() {
                     }
                     ListHeaderComponent={() => (
                         <View>
+                            {years.length > 0 && (
+                              <View style={styles.yearFilterContainer}>
+                                <Text style={styles.sectionTitle}>Year</Text>
+                                <View style={styles.yearChipRow}>
+                                  {years.map((yr) => (
+                                    <TouchableOpacity
+                                      key={yr}
+                                      onPress={() => setYearFilter(yr)}
+                                      style={[styles.yearChip, yearFilter === yr && styles.yearChipActive]}
+                                    >
+                                      <Text style={styles.yearChipText}>{yr}</Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                  <TouchableOpacity
+                                    onPress={() => setYearFilter(undefined)}
+                                    style={[styles.yearChip, yearFilter === undefined && styles.yearChipActive]}
+                                  >
+                                    <Text style={styles.yearChipText}>All</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+                            )}
                             <View style={styles.summaryCard}>
                                 <View style={styles.summaryRow}>
                                     <View style={styles.summaryItem}>
@@ -178,6 +207,43 @@ export default function MySalaryScreen() {
                     )}
                     ListEmptyComponent={renderEmpty}
                 />
+                {/* Simple pagination controls */}
+                    <View style={styles.paginationContainer}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            const currentPage = salaryData?.page ?? 1
+                            if (currentPage > 1) {
+                                // go to previous page
+                                // trigger refetch by updating salaryData's page
+                                // Note: we rely on the API's page value; here we mutate local state indirectly via a new fetch
+                                const nextPage = currentPage - 1
+                                // trigger fetch with new page
+                                getMySalary({ year: yearFilter, page: nextPage, limit: salaryData?.limit ?? 10 }).then((d) => {
+                                    if (d) setSalaryData(d)
+                                })
+                            }
+                        }}
+                        style={styles.paginationButton}
+                    >
+                        <Text>Prev</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.paginationInfo}>Page {salaryData?.page ?? 1}</Text>
+                    <TouchableOpacity
+                        onPress={() => {
+                            const currentPage = salaryData?.page ?? 1
+                            const totalPages = Math.ceil((salaryData?.total ?? 0) / (salaryData?.limit ?? 10))
+                            if (currentPage < totalPages) {
+                                const nextPage = currentPage + 1
+                                getMySalary({ year: yearFilter, page: nextPage, limit: salaryData?.limit ?? 10 }).then((d) => {
+                                    if (d) setSalaryData(d)
+                                })
+                            }
+                        }}
+                        style={styles.paginationButton}
+                    >
+                        <Text>Next</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </SafeAreaView>
     );
@@ -334,5 +400,54 @@ const styles = StyleSheet.create({
         fontWeight: FontWeight.semibold,
         color: Colors.light.text,
         marginTop: Spacing.md,
+    },
+    // New UI helpers for staff salary history
+    yearFilterContainer: {
+        padding: Spacing.md,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.sm,
+        backgroundColor: Colors.light.background,
+    },
+    yearChipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: Spacing.xs,
+    },
+    yearChip: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        marginRight: Spacing.xs,
+        marginBottom: Spacing.xs,
+        backgroundColor: Colors.light.surface,
+    },
+    yearChipActive: {
+        backgroundColor: Colors.light.primary,
+        borderColor: Colors.light.primary,
+    },
+    yearChipText: {
+        fontSize: FontSize.sm,
+        color: Colors.light.text,
+    },
+    paginationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: Spacing.md,
+        backgroundColor: Colors.light.background,
+    },
+    paginationButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 6,
+        backgroundColor: Colors.light.surface,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    paginationInfo: {
+        fontSize: FontSize.sm,
+        color: Colors.light.textMuted,
     },
 });
