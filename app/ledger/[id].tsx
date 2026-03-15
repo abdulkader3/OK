@@ -325,7 +325,7 @@ const handleDelete = () => {
           )}
         </View>
 
-{/* Record Payment Button */}
+        {/* Record Payment Button */}
         {ledger.outstandingBalance > 0 && (
           <TouchableOpacity
             style={[styles.recordPaymentBtn, Shadow.sm]}
@@ -343,7 +343,7 @@ const handleDelete = () => {
           activeOpacity={0.8}
           onPress={() => setShowAddDebtModal(true)}
         >
-          <MaterialIcons name="add-circle-outline" size={20} color={Colors.light.textInverse} />
+          <MaterialIcons name="trending-up" size={20} color={Colors.light.textInverse} />
           <Text style={styles.addDebtText}>{t('ledgerDetail.addMoreDebt')}</Text>
         </TouchableOpacity>
 
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     marginHorizontal: Spacing.xl,
@@ -861,7 +861,7 @@ recordPaymentText: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.light.accentOrange,
+    backgroundColor: Colors.light.error,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     marginHorizontal: Spacing.xl,
