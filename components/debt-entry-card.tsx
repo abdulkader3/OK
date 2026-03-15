@@ -78,6 +78,7 @@ export function DebtEntryCard({
                 <Text style={[styles.amount, { color: typeColors[type] }]}>{amount}</Text>
             </View>
 
+            {(onRecordPayment || onSettleUp) && (
             <View style={styles.actions}>
                 <TouchableOpacity
                     style={styles.actionBtn}
@@ -94,6 +95,7 @@ export function DebtEntryCard({
                     <Text style={styles.actionBtnPrimaryText}>Settle Up</Text>
                 </TouchableOpacity>
             </View>
+            )}
         </View>
     );
 }

@@ -94,8 +94,6 @@ export default function LedgerScreen() {
                     type={getLedgerType(ledger.type)}
                     description={ledger.notes}
                     amount={formatAmount(ledger.outstandingBalance, ledger.type)}
-                    onRecordPayment={() => router.push({ pathname: '/modal', params: { ledgerId: ledger._id, outstandingBalance: ledger.outstandingBalance } })}
-                    onSettleUp={() => router.push({ pathname: '/modal', params: { ledgerId: ledger._id, outstandingBalance: ledger.outstandingBalance } })}
                 />
             </TouchableOpacity>
         );
