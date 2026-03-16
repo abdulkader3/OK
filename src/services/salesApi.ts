@@ -143,7 +143,8 @@ export async function uploadReceipt(imageUri: string): Promise<ApiResponse<{ url
   const extension = uriParts[uriParts.length - 1] || 'jpg';
   const mimeType = `image/${extension === 'jpg' ? 'jpeg' : extension}`;
   
-  formData.append('receipt', {
+  // Backend expects field name "file" (not "receipt")
+  formData.append('file', {
     uri: imageUri,
     type: mimeType,
     name: `receipt_${Date.now()}.${extension}`,

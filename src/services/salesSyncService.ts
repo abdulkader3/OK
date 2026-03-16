@@ -12,6 +12,7 @@ const LAST_SYNC_KEY = '@sales_last_sync';
 export interface PendingUpload {
   id: string;
   localUri: string;
+  uploadedUrl?: string;  // Store Cloudinary URL after upload
   targetType: 'product';
   targetId: string;
   status: 'pending' | 'uploading' | 'failed' | 'completed';
@@ -156,7 +157,11 @@ export async function uploadPendingImages(): Promise<{ uploaded: number; failed:
       const response = await uploadReceipt(upload.localUri);
       
       if (response.success && response.data) {
-        await updatePendingUpload(upload.id, { status: 'completed' });
+        // Store the uploaded URL for use in sync
+        await updatePendingUpload(upload.id, { 
+          status: 'completed',
+          uploadedUrl: response.data.url 
+        });
         uploaded++;
       } else {
         await updatePendingUpload(upload.id, { 
@@ -186,17 +191,31 @@ export async function syncSalesBatch(): Promise<SyncResult> {
     return { success: true, processed: 0, failed: 0, results: [] };
   }
 
+  // Step 1: Upload any pending images first
+  const uploadResult = await uploadPendingImages();
+  console.log('[Sync] Image uploads:', uploadResult);
+
+  // Step 2: Get completed uploads to use their URLs in sync
+  const completedUploads = await getPendingUploads();
+  const uploadUrls = new Map(
+    completedUploads
+      .filter(u => u.status === 'completed' && u.uploadedUrl)
+      .map(u => [u.targetId, u.uploadedUrl])
+  );
+
   const operations: SyncOperation[] = pendingItems
     .slice(0, 100)
     .map(item => {
       if (item.type === 'product') {
+        // Use uploaded URL if available, otherwise use any pre-set imageUrl
+        const imageUrl = uploadUrls.get(item.clientTempId) || item.data.imageUrl || null;
         return {
           type: 'product',
           clientTempId: item.clientTempId,
           idempotencyKey: item.idempotencyKey,
           name: item.data.name,
           price: item.data.price,
-          imageUrl: item.data.imageUrl,
+          imageUrl: imageUrl,
         };
       } else {
         return {
