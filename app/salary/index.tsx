@@ -87,6 +87,7 @@ export default function AllSalaryPaymentsScreen() {
         <TouchableOpacity 
             style={styles.paymentCard}
             activeOpacity={0.7}
+            onPress={() => router.push({ pathname: '/salary/[id]', params: { id: item._id } })}
         >
             <View style={styles.paymentHeader}>
                 <View style={styles.staffInfo}>

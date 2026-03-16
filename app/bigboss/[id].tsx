@@ -297,7 +297,11 @@ export default function BigBossDetailScreen() {
     };
 
     const renderBillItem = ({ item }: { item: Bill }) => (
-        <View style={styles.billCard}>
+        <TouchableOpacity 
+            style={styles.billCard}
+            activeOpacity={0.7}
+            onPress={() => router.push({ pathname: '/bigboss/bills/[id]', params: { id: item._id } })}
+        >
             <View style={styles.billHeader}>
                 <View style={styles.billDate}>
                     <Text style={styles.billMonth}>{getMonthName(item.month)}</Text>
@@ -327,7 +331,7 @@ export default function BigBossDetailScreen() {
                     <Text style={styles.attachmentText}>Attachment</Text>
                 </View>
             )}
-        </View>
+        </TouchableOpacity>
     );
 
     const renderEmpty = () => (

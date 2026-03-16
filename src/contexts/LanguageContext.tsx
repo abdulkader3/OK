@@ -117,6 +117,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'salary.monthlySalary': 'Monthly Salary',
     'salary.paid': 'Paid',
     'salary.pending': 'Pending',
+    'salary.paymentDetails': 'Payment Details',
+    'salary.staffDetails': 'Staff Details',
     
     // Contacts
     'contacts.title': 'Contacts',

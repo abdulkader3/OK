@@ -103,6 +103,8 @@ export interface BillDetail {
   attachment?: Attachment;
   createdBy: CreatedBy;
   createdAt: string;
+  updatedAt: string;
+  ownerId: string | { _id: string; name: string; email: string };
 }
 
 export interface YearSummary {

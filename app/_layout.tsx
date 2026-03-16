@@ -79,6 +79,13 @@ function AuthNavigator() {
         }}
       />
       <Stack.Screen
+        name="bigboss/bills/[id]"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="salary/pay"
         options={{
           presentation: 'card',
@@ -94,6 +101,13 @@ function AuthNavigator() {
       />
       <Stack.Screen
         name="salary/my-salary"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="salary/[id]"
         options={{
           presentation: 'card',
           headerShown: false,

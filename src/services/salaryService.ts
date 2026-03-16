@@ -30,6 +30,7 @@ export interface SalaryPayment {
   paidAt: string;
   createdBy?: CreatedBy;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface StaffMember {
