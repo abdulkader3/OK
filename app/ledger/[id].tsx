@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,7 +21,6 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePermissions } from '@/src/hooks/usePermissions';
 
@@ -41,6 +41,8 @@ export default function LedgerDetailScreen() {
   const [paymentDetailLoading, setPaymentDetailLoading] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptImageUri, setReceiptImageUri] = useState<string | null>(null);
+  const [receiptImageLoading, setReceiptImageLoading] = useState(false);
+  const [receiptImageError, setReceiptImageError] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editData, setEditData] = useState<UpdateLedgerData>({});
   const [newTag, setNewTag] = useState('');
@@ -94,9 +96,16 @@ export default function LedgerDetailScreen() {
   };
 
 const handleDelete = () => {
+    const paymentCount = payments.length;
+    const hasPayments = paymentCount > 0;
+    
+    const confirmMessage = hasPayments
+      ? `This will delete the ledger and all ${paymentCount} associated payment(s). This action cannot be undone.`
+      : t('ledgerDetail.deleteConfirm');
+
     Alert.alert(
       t('ledgerDetail.deleteLedger'),
-      t('ledgerDetail.deleteConfirm'),
+      confirmMessage,
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -104,12 +113,23 @@ const handleDelete = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteLedger(id!);
-              Alert.alert(t('common.success'), t('ledgerDetail.ledgerDeleted'), [
+              await deleteLedger(id!, hasPayments);
+              const successMessage = hasPayments
+                ? `Ledger deleted successfully along with ${paymentCount} payment(s).`
+                : t('ledgerDetail.ledgerDeleted');
+              Alert.alert(t('common.success'), successMessage, [
                 { text: 'OK', onPress: () => router.back() }
               ]);
-            } catch (error) {
-              Alert.alert(t('common.error'), t('ledgerDetail.deleteLedgerError'));
+            } catch (error: any) {
+              const errorMessage = error?.message || '';
+              if (errorMessage.includes('existing payments') || errorMessage.includes('Archive it instead')) {
+                Alert.alert(
+                  t('common.error'),
+                  'Cannot delete this ledger because it has existing payments. Please archive it instead.'
+                );
+              } else {
+                Alert.alert(t('common.error'), t('ledgerDetail.deleteLedgerError'));
+              }
             }
           },
         },
@@ -151,6 +171,8 @@ const handleDelete = () => {
 
   const handlePaymentClick = async (payment: Payment) => {
     setSelectedPayment(payment);
+    setReceiptImageLoading(true);
+    setReceiptImageError(false);
     setShowPaymentDetailModal(true);
   };
 
@@ -752,11 +774,31 @@ const handleDelete = () => {
                             }
                           }}
                         >
-                          <Image 
-                            source={{ uri: selectedPayment.receiptUrl }} 
-                            style={styles.paymentDetailReceiptImage}
-                            contentFit="cover"
-                          />
+                          {receiptImageError ? (
+                            <View style={[styles.paymentDetailReceiptImage, styles.receiptErrorContainer]}>
+                              <MaterialIcons name="broken-image" size={40} color={Colors.light.textMuted} />
+                              <Text style={styles.receiptErrorText}>Failed to load</Text>
+                            </View>
+                          ) : (
+                            <>
+                              <Image 
+                                source={{ uri: selectedPayment.receiptUrl }} 
+                                style={styles.paymentDetailReceiptImage}
+                                resizeMode="cover"
+                                onLoadStart={() => setReceiptImageLoading(true)}
+                                onLoadEnd={() => setReceiptImageLoading(false)}
+                                onError={() => {
+                                  setReceiptImageLoading(false);
+                                  setReceiptImageError(true);
+                                }}
+                              />
+                              {receiptImageLoading && (
+                                <View style={styles.receiptLoadingOverlay}>
+                                  <ActivityIndicator size="small" color={Colors.light.primary} />
+                                </View>
+                              )}
+                            </>
+                          )}
                           <View style={styles.paymentDetailReceiptOverlay}>
                             <MaterialIcons name="zoom-in" size={24} color={Colors.light.textInverse} />
                             <Text style={styles.paymentDetailReceiptText}>Tap to view</Text>
@@ -801,7 +843,7 @@ const handleDelete = () => {
               <Image 
                 source={{ uri: receiptImageUri }} 
                 style={styles.receiptModalImage}
-                contentFit="contain"
+                resizeMode="contain"
               />
             )}
           </View>
@@ -1481,5 +1523,21 @@ paymentAmount: {
   receiptModalImage: {
     width: '100%',
     height: '100%',
+  },
+  receiptErrorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.light.backgroundAlt,
+  },
+  receiptErrorText: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textMuted,
+    marginTop: Spacing.sm,
+  },
+  receiptLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
 });

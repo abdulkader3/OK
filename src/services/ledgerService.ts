@@ -93,8 +93,9 @@ export async function getLedgerById(id: string): Promise<Ledger> {
   throw new Error(response.message || 'Failed to fetch ledger');
 }
 
-export async function deleteLedger(id: string): Promise<void> {
-  const response = await apiClient.delete(`/api/ledgers/${id}`);
+export async function deleteLedger(id: string, force: boolean = false): Promise<void> {
+  const endpoint = force ? `/api/ledgers/${id}?force=true` : `/api/ledgers/${id}`;
+  const response = await apiClient.delete(endpoint);
   if (!response.success) {
     throw new Error(response.message || 'Failed to delete ledger');
   }
