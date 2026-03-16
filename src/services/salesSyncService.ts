@@ -1,0 +1,309 @@
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from './apiClient';
+import { uploadReceipt, SyncOperation } from './salesApi';
+
+const SYNC_QUEUE_KEY = '@sales_sync_queue';
+const PENDING_UPLOADS_KEY = '@sales_pending_uploads';
+const ID_MAPPING_KEY = '@sales_id_mapping';
+const LAST_SYNC_KEY = '@sales_last_sync';
+
+export interface PendingUpload {
+  id: string;
+  localUri: string;
+  targetType: 'product';
+  targetId: string;
+  status: 'pending' | 'uploading' | 'failed' | 'completed';
+  createdAt: string;
+  retryCount: number;
+}
+
+export interface SyncQueueItem {
+  id: string;
+  type: 'product' | 'sale';
+  clientTempId: string;
+  idempotencyKey: string;
+  data: any;
+  status: 'pending' | 'syncing' | 'synced' | 'failed';
+  createdAt: string;
+  retryCount: number;
+  lastError?: string;
+  serverId?: string;
+  ledgerTxnId?: string;
+}
+
+export interface SyncResult {
+  success: boolean;
+  processed: number;
+  failed: number;
+  results: Array<{
+    clientTempId: string;
+    type: 'product' | 'sale';
+    success: boolean;
+    serverAssignedId?: string;
+    ledgerDebtId?: string;
+    idempotent?: boolean;
+    error?: string;
+  }>;
+}
+
+export async function addToSyncQueue(item: Omit<SyncQueueItem, 'createdAt' | 'retryCount' | 'id'> & { id?: string }): Promise<void> {
+  const queue = await getSyncQueue();
+  queue.push({
+    ...item,
+    id: item.id || uuidv4(),
+    createdAt: new Date().toISOString(),
+    retryCount: 0,
+  });
+  await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+}
+
+export async function getSyncQueue(): Promise<SyncQueueItem[]> {
+  try {
+    const data = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function updateSyncItem(id: string, updates: Partial<SyncQueueItem>): Promise<void> {
+  const queue = await getSyncQueue();
+  const index = queue.findIndex(i => i.id === id);
+  if (index >= 0) {
+    queue[index] = { ...queue[index], ...updates };
+    await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+  }
+}
+
+export async function removeSyncItem(id: string): Promise<void> {
+  const queue = await getSyncQueue();
+  const filtered = queue.filter(i => i.id !== id);
+  await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(filtered));
+}
+
+export async function getIdMapping(): Promise<Record<string, string>> {
+  try {
+    const data = await AsyncStorage.getItem(ID_MAPPING_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function addIdMapping(localId: string, serverId: string): Promise<void> {
+  const mapping = await getIdMapping();
+  mapping[localId] = serverId;
+  await AsyncStorage.setItem(ID_MAPPING_KEY, JSON.stringify(mapping));
+}
+
+export async function getServerId(localId: string): Promise<string | null> {
+  const mapping = await getIdMapping();
+  return mapping[localId] || null;
+}
+
+export async function addPendingUpload(upload: Omit<PendingUpload, 'createdAt' | 'retryCount'>): Promise<void> {
+  const uploads = await getPendingUploads();
+  uploads.push({
+    ...upload,
+    createdAt: new Date().toISOString(),
+    retryCount: 0,
+  });
+  await AsyncStorage.setItem(PENDING_UPLOADS_KEY, JSON.stringify(uploads));
+}
+
+export async function getPendingUploads(): Promise<PendingUpload[]> {
+  try {
+    const data = await AsyncStorage.getItem(PENDING_UPLOADS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function updatePendingUpload(id: string, updates: Partial<PendingUpload>): Promise<void> {
+  const uploads = await getPendingUploads();
+  const index = uploads.findIndex(u => u.id === id);
+  if (index >= 0) {
+    uploads[index] = { ...uploads[index], ...updates };
+    await AsyncStorage.setItem(PENDING_UPLOADS_KEY, JSON.stringify(uploads));
+  }
+}
+
+export async function removePendingUpload(id: string): Promise<void> {
+  const uploads = await getPendingUploads();
+  const filtered = uploads.filter(u => u.id !== id);
+  await AsyncStorage.setItem(PENDING_UPLOADS_KEY, JSON.stringify(filtered));
+}
+
+export async function uploadPendingImages(): Promise<{ uploaded: number; failed: number }> {
+  const uploads = await getPendingUploads();
+  const pending = uploads.filter(u => u.status === 'pending' || u.status === 'failed');
+  
+  let uploaded = 0;
+  let failed = 0;
+
+  for (const upload of pending) {
+    if (upload.retryCount >= 3) {
+      failed++;
+      continue;
+    }
+
+    try {
+      await updatePendingUpload(upload.id, { status: 'uploading' });
+      
+      const response = await uploadReceipt(upload.localUri);
+      
+      if (response.success && response.data) {
+        await updatePendingUpload(upload.id, { status: 'completed' });
+        uploaded++;
+      } else {
+        await updatePendingUpload(upload.id, { 
+          status: 'failed', 
+          retryCount: upload.retryCount + 1 
+        });
+        failed++;
+      }
+    } catch (error) {
+      await updatePendingUpload(upload.id, { 
+        status: 'failed', 
+        retryCount: upload.retryCount + 1 
+      });
+      failed++;
+    }
+  }
+
+  return { uploaded, failed };
+}
+
+export async function syncSalesBatch(): Promise<SyncResult> {
+  const queue = await getSyncQueue();
+  const pendingItems = queue.filter(i => i.status === 'pending' || i.status === 'failed');
+  
+  if (pendingItems.length === 0) {
+    await updateLastSync();
+    return { success: true, processed: 0, failed: 0, results: [] };
+  }
+
+  const operations: SyncOperation[] = pendingItems
+    .slice(0, 100)
+    .map(item => {
+      if (item.type === 'product') {
+        return {
+          type: 'product',
+          clientTempId: item.clientTempId,
+          idempotencyKey: item.idempotencyKey,
+          name: item.data.name,
+          price: item.data.price,
+          imageUrl: item.data.imageUrl,
+        };
+      } else {
+        return {
+          type: 'sale',
+          clientTempId: item.clientTempId,
+          idempotencyKey: item.idempotencyKey,
+          totalAmount: item.data.totalAmount,
+          items: item.data.items,
+          ledgerId: item.data.ledgerId,
+          ledgerCounterpartyName: item.data.ledgerName,
+          recordedAtClient: item.data.recordedAtClient,
+        };
+      }
+    });
+
+  for (const item of pendingItems.slice(0, 100)) {
+    await updateSyncItem(item.id, { status: 'syncing' });
+  }
+
+  try {
+    const response = await apiClient.post<any>('/api/sync/batch', { operations });
+    
+    const results: SyncResult['results'] = [];
+    let processed = 0;
+    let failed = 0;
+
+    if (response.success && response.data) {
+      for (const result of response.data.results) {
+        const originalItem = pendingItems.find(i => i.clientTempId === result.clientTempId);
+        
+        // Handle idempotent response (already synced)
+        const isIdempotent = result.idempotent === true;
+        const isSuccess = result.success === true || isIdempotent;
+        
+        if (isSuccess && result.serverAssignedId) {
+          // Update ID mapping
+          await addIdMapping(result.clientTempId, result.serverAssignedId);
+          
+          // Update sync item in place instead of deleting
+          if (originalItem) {
+            await updateSyncItem(originalItem.id, {
+              status: 'synced',
+              serverId: result.serverAssignedId,
+              // Handle ledgerDebtId if present (for credit sales)
+              ...(result.ledgerDebtId && { ledgerTxnId: result.ledgerDebtId }),
+            });
+          }
+          processed++;
+        } else {
+          if (originalItem) {
+            await updateSyncItem(originalItem.id, {
+              status: 'failed',
+              retryCount: originalItem.retryCount + 1,
+              lastError: result.error || 'Sync failed',
+            });
+          }
+          failed++;
+        }
+
+        results.push({
+          clientTempId: result.clientTempId,
+          type: originalItem?.type || 'product',
+          success: isSuccess,
+          serverAssignedId: result.serverAssignedId,
+          error: result.error,
+        });
+      }
+    }
+
+    await updateLastSync();
+
+    return { success: true, processed, failed, results };
+  } catch (error) {
+    console.error('Sync error:', error);
+    return { success: false, processed: 0, failed: 0, results: [] };
+  }
+}
+
+export async function updateLastSync(): Promise<void> {
+  await AsyncStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+}
+
+export async function getLastSyncTime(): Promise<string | null> {
+  return await AsyncStorage.getItem(LAST_SYNC_KEY);
+}
+
+export async function getPendingCount(): Promise<number> {
+  const queue = await getSyncQueue();
+  return queue.filter(i => i.status === 'pending' || i.status === 'failed').length;
+}
+
+export async function retryFailed(): Promise<void> {
+  const queue = await getSyncQueue();
+  for (const item of queue.filter(i => i.status === 'failed')) {
+    await updateSyncItem(item.id, { status: 'pending', lastError: undefined });
+  }
+}
+
+export async function clearQueue(): Promise<void> {
+  await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
+}
+
+export async function clearAll(): Promise<void> {
+  await AsyncStorage.multiRemove([
+    SYNC_QUEUE_KEY,
+    PENDING_UPLOADS_KEY,
+    ID_MAPPING_KEY,
+    LAST_SYNC_KEY,
+  ]);
+}

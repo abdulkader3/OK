@@ -10,6 +10,7 @@ import { getSalarySummary, SalarySummary } from '@/src/services/salaryService';
 import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useSales } from '@/src/contexts/SalesContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -21,6 +22,7 @@ export default function DashboardScreen() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { t } = useLanguage();
   const { isOffline } = useNetwork();
+  const { getTodaySalesTotal, getSalesTotalForDays } = useSales();
   const [summary, setSummary] = useState<{
     totalOwedToMe: number;
     totalIOwe: number;
@@ -250,12 +252,13 @@ export default function DashboardScreen() {
                 amountColor={Colors.light.primary}
               />
               <SummaryCard
-                icon="arrow-upward"
-                label={t('dashboard.iOwe')}
-                amount={formatCurrency(summary?.totalIOwe || 0)}
+                icon="point-of-sale"
+                label={getSalesTotalForDays(2) > 0 ? t('sales.todaySales') : t('dashboard.dailySalesManagement')}
+                amount={formatCurrency(getTodaySalesTotal())}
                 backgroundColor={Colors.light.cardIOwe}
                 iconColor={Colors.light.accentOrange}
                 amountColor={Colors.light.primary}
+                onPress={() => router.push('/sales-management')}
               />
             </View>
             <View style={styles.cardRow}>

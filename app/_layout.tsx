@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { LanguageProvider } from '@/src/contexts/LanguageContext';
+import { SalesProvider } from '@/src/contexts/SalesContext';
 import { Colors } from '@/constants/theme';
 
 function AuthNavigator() {
@@ -113,6 +114,13 @@ function AuthNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="sales-management"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
@@ -128,8 +136,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <LanguageProvider>
         <AuthProvider>
-          <AuthNavigator />
-          <StatusBar style="auto" />
+          <SalesProvider>
+            <AuthNavigator />
+            <StatusBar style="auto" />
+          </SalesProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
