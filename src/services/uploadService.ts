@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import apiClient from './apiClient';
 
 const { API_URL } = Constants.expoConfig?.extra || {};
 
@@ -26,21 +27,12 @@ export async function uploadReceipt(uri: string): Promise<UploadResponse> {
     type,
   } as unknown as string);
 
-  const response = await fetch(`${BASE_URL}/api/uploads/receipt`, {
-    method: 'POST',
-    body: formData,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Upload failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+  const response = await apiClient.post<UploadResponse>('/api/uploads/receipt', formData);
+  
+  if (response.success && response.data) {
+    return response.data;
   }
-
-  return response.json();
+  throw new Error(response.message || 'Upload failed');
 }
 
 export default uploadReceipt;

@@ -80,3 +80,11 @@ export async function getPayments(ledgerId?: string): Promise<PaymentsResponse> 
   }
   throw new Error(response.message || 'Failed to fetch payments');
 }
+
+export async function getPaymentById(paymentId: string): Promise<Payment> {
+  const response = await apiClient.get<{ payment: Payment }>(`/api/payments/${paymentId}`);
+  if (response.success && response.data?.payment) {
+    return response.data.payment;
+  }
+  throw new Error(response.message || 'Failed to fetch payment');
+}

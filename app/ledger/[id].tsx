@@ -1,6 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { addDebt, deleteLedger, getLedgerById, Ledger, updateLedger, UpdateLedgerData } from '@/services/ledgerService';
-import { getPayments, Payment } from '@/services/paymentService';
+import { getPaymentById, getPayments, Payment } from '@/services/paymentService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +20,7 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePermissions } from '@/src/hooks/usePermissions';
 
@@ -35,6 +36,11 @@ export default function LedgerDetailScreen() {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddDebtModal, setShowAddDebtModal] = useState(false);
+  const [showPaymentDetailModal, setShowPaymentDetailModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [paymentDetailLoading, setPaymentDetailLoading] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptImageUri, setReceiptImageUri] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editData, setEditData] = useState<UpdateLedgerData>({});
   const [newTag, setNewTag] = useState('');
@@ -141,6 +147,11 @@ const handleDelete = () => {
     } finally {
       setAddDebtLoading(false);
     }
+  };
+
+  const handlePaymentClick = async (payment: Payment) => {
+    setSelectedPayment(payment);
+    setShowPaymentDetailModal(true);
   };
 
   const openEditModal = () => {
@@ -358,7 +369,12 @@ const handleDelete = () => {
             </View>
 ) : (
             payments.map((payment) => (
-              <View key={payment._id} style={[styles.paymentCard, Shadow.sm]}>
+              <TouchableOpacity 
+                key={payment._id} 
+                style={[styles.paymentCard, Shadow.sm]}
+                onPress={() => handlePaymentClick(payment)}
+                activeOpacity={0.7}
+              >
                 <View style={styles.paymentHeader}>
                   <View style={styles.paymentAmountContainer}>
                     <Text style={[
@@ -416,7 +432,7 @@ const handleDelete = () => {
                     {t('ledgerDetail.outstandingStatus')} ${payment.previousOutstanding.toFixed(2)} → ${payment.newOutstanding.toFixed(2)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -616,6 +632,180 @@ const handleDelete = () => {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Payment Detail Modal */}
+      <Modal
+        visible={showPaymentDetailModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPaymentDetailModal(false)}
+      >
+        <View style={styles.paymentDetailOverlay}>
+          <View style={[styles.paymentDetailContainer, Shadow.lg]}>
+            {paymentDetailLoading ? (
+              <View style={styles.paymentDetailLoading}>
+                <ActivityIndicator size="large" color={Colors.light.primaryMuted} />
+              </View>
+            ) : selectedPayment ? (
+              <>
+                <View style={styles.paymentDetailHeader}>
+                  <Text style={styles.paymentDetailTitle}>{t('ledgerDetail.paymentDetails')}</Text>
+                  <TouchableOpacity onPress={() => setShowPaymentDetailModal(false)}>
+                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={styles.paymentDetailContent}>
+                    {/* Amount */}
+                    <View style={styles.paymentDetailSection}>
+                      <Text style={styles.paymentDetailLabel}>{t('common.amount')}</Text>
+                      <Text style={[
+                        styles.paymentDetailAmount,
+                        selectedPayment.type === 'adjustment' && styles.paymentDetailAmountPositive
+                      ]}>
+                        {selectedPayment.type === 'adjustment' ? '+' : '-'}${selectedPayment.amount.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    {/* Type & Method */}
+                    <View style={styles.paymentDetailRowWide}>
+                      <View style={styles.paymentDetailField}>
+                        <Text style={styles.paymentDetailLabel}>{t('common.type')}</Text>
+                        <View style={[
+                          styles.paymentDetailBadge,
+                          selectedPayment.type === 'payment' ? styles.paymentDetailBadgePayment : styles.paymentDetailBadgeAdjustment
+                        ]}>
+                          <Text style={styles.paymentDetailBadgeText}>
+                            {selectedPayment.type.charAt(0).toUpperCase() + selectedPayment.type.slice(1)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.paymentDetailField}>
+                        <Text style={styles.paymentDetailLabel}>{t('modal.method')}</Text>
+                        <Text style={styles.paymentDetailValue}>
+                          {selectedPayment.method.charAt(0).toUpperCase() + selectedPayment.method.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Date */}
+                    <View style={styles.paymentDetailSection}>
+                      <Text style={styles.paymentDetailLabel}>{t('ledgerDetail.date')}</Text>
+                      <Text style={styles.paymentDetailValue}>
+                        {new Date(selectedPayment.recordedAt).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </Text>
+                    </View>
+
+                    {/* Recorded By */}
+                    <View style={styles.paymentDetailSection}>
+                      <Text style={styles.paymentDetailLabel}>Recorded By</Text>
+                      <Text style={styles.paymentDetailValue}>
+                        {typeof selectedPayment.recordedBy === 'object' 
+                          ? selectedPayment.recordedBy.name 
+                          : 'Unknown'}
+                        {typeof selectedPayment.recordedBy === 'object' && selectedPayment.recordedBy.email && (
+                          <Text style={styles.paymentDetailEmail}> ({selectedPayment.recordedBy.email})</Text>
+                        )}
+                      </Text>
+                    </View>
+
+                    {/* Balance Change */}
+                    <View style={styles.paymentDetailSection}>
+                      <Text style={styles.paymentDetailLabel}>Balance Change</Text>
+                      <View style={styles.paymentDetailBalanceRow}>
+                        <Text style={styles.paymentDetailBalanceLabel}>Previous:</Text>
+                        <Text style={styles.paymentDetailBalanceValue}>${selectedPayment.previousOutstanding.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.paymentDetailBalanceRow}>
+                        <Text style={styles.paymentDetailBalanceLabel}>New:</Text>
+                        <Text style={styles.paymentDetailBalanceValue}>${selectedPayment.newOutstanding.toFixed(2)}</Text>
+                      </View>
+                    </View>
+
+                    {/* Note */}
+                    {selectedPayment.note && (
+                      <View style={styles.paymentDetailSection}>
+                        <Text style={styles.paymentDetailLabel}>{t('common.notes')}</Text>
+                        <Text style={styles.paymentDetailValue}>{selectedPayment.note}</Text>
+                      </View>
+                    )}
+
+                    {/* Receipt Image */}
+                    {selectedPayment.receiptUrl && (
+                      <View style={styles.paymentDetailSection}>
+                        <Text style={styles.paymentDetailLabel}>Receipt</Text>
+                        <TouchableOpacity 
+                          style={styles.paymentDetailReceipt}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            if (selectedPayment.receiptUrl) {
+                              setReceiptImageUri(selectedPayment.receiptUrl);
+                              setShowReceiptModal(true);
+                            }
+                          }}
+                        >
+                          <Image 
+                            source={{ uri: selectedPayment.receiptUrl }} 
+                            style={styles.paymentDetailReceiptImage}
+                            contentFit="cover"
+                          />
+                          <View style={styles.paymentDetailReceiptOverlay}>
+                            <MaterialIcons name="zoom-in" size={24} color={Colors.light.textInverse} />
+                            <Text style={styles.paymentDetailReceiptText}>Tap to view</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
+                    {/* Payment ID */}
+                    <View style={styles.paymentDetailSection}>
+                      <Text style={styles.paymentDetailLabel}>Payment ID</Text>
+                      <Text style={styles.paymentDetailId}>{selectedPayment._id}</Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              </>
+            ) : (
+              <View style={styles.paymentDetailError}>
+                <Text style={styles.errorText}>Payment not found</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Receipt Image Modal */}
+      <Modal
+        visible={showReceiptModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReceiptModal(false)}
+      >
+        <Pressable style={styles.receiptModalOverlay} onPress={() => setShowReceiptModal(false)}>
+          <View style={styles.receiptModalContainer}>
+            <TouchableOpacity 
+              style={styles.receiptModalClose}
+              onPress={() => setShowReceiptModal(false)}
+            >
+              <MaterialIcons name="close" size={24} color={Colors.light.textInverse} />
+            </TouchableOpacity>
+            {receiptImageUri && (
+              <Image 
+                source={{ uri: receiptImageUri }} 
+                style={styles.receiptModalImage}
+                contentFit="contain"
+              />
+            )}
+          </View>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -1135,5 +1325,161 @@ paymentAmount: {
     fontSize: FontSize.md,
     fontWeight: FontWeight.bold,
     color: Colors.light.textInverse,
+  },
+  paymentDetailOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  paymentDetailContainer: {
+    backgroundColor: Colors.light.surface,
+    borderTopLeftRadius: BorderRadius.xxl,
+    borderTopRightRadius: BorderRadius.xxl,
+    maxHeight: '85%',
+  },
+  paymentDetailLoading: {
+    padding: Spacing.xxxl,
+    alignItems: 'center',
+  },
+  paymentDetailError: {
+    padding: Spacing.xxxl,
+    alignItems: 'center',
+  },
+  paymentDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  paymentDetailTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  paymentDetailContent: {
+    padding: Spacing.xl,
+  },
+  paymentDetailSection: {
+    marginBottom: Spacing.lg,
+  },
+  paymentDetailRowWide: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  paymentDetailField: {
+    flex: 1,
+  },
+  paymentDetailLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  paymentDetailValue: {
+    fontSize: FontSize.md,
+    color: Colors.light.text,
+  },
+  paymentDetailEmail: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textMuted,
+  },
+  paymentDetailAmount: {
+    fontSize: FontSize.xxxl,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  paymentDetailAmountPositive: {
+    color: Colors.light.accentTeal,
+  },
+  paymentDetailBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  paymentDetailBadgePayment: {
+    backgroundColor: Colors.light.accent + '20',
+  },
+  paymentDetailBadgeAdjustment: {
+    backgroundColor: Colors.light.accentTeal + '20',
+  },
+  paymentDetailBadgeText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.accent,
+  },
+  paymentDetailBalanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.xs,
+  },
+  paymentDetailBalanceLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textMuted,
+  },
+  paymentDetailBalanceValue: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.text,
+  },
+  paymentDetailReceipt: {
+    position: 'relative',
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+  },
+  paymentDetailReceiptImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: BorderRadius.lg,
+  },
+  paymentDetailReceiptOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+  },
+  paymentDetailReceiptText: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textInverse,
+    fontWeight: FontWeight.medium,
+  },
+  paymentDetailId: {
+    fontSize: FontSize.xs,
+    color: Colors.light.textMuted,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  receiptModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  receiptModalContainer: {
+    width: '100%',
+    height: '80%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  receiptModalClose: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: BorderRadius.full,
+    padding: Spacing.sm,
+  },
+  receiptModalImage: {
+    width: '100%',
+    height: '100%',
   },
 });

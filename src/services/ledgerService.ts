@@ -141,6 +141,37 @@ export interface AddDebtPayment {
   recordedAt: string;
 }
 
+export type PaymentMethod = 'cash' | 'bank' | 'other';
+export type PaymentType = 'payment' | 'adjustment' | 'refund';
+
+export interface RecordPaymentData {
+  amount: number;
+  method?: PaymentMethod;
+  type?: PaymentType;
+  note?: string;
+  receiptUrl?: string;
+  idempotencyKey: string;
+}
+
+export interface RecordPayment {
+  _id: string;
+  ledgerId: string;
+  amount: number;
+  type: PaymentType;
+  method: PaymentMethod;
+  note?: string;
+  receiptUrl?: string;
+  recordedBy: RecordedBy;
+  previousOutstanding: number;
+  newOutstanding: number;
+  recordedAt: string;
+}
+
+export interface RecordPaymentResponse {
+  ledger: Ledger;
+  payment: RecordPayment;
+}
+
 export interface AddDebtResponse {
   ledger: Ledger;
   payment: AddDebtPayment;
@@ -152,4 +183,12 @@ export async function addDebt(id: string, data: AddDebtData): Promise<AddDebtRes
     return response.data;
   }
   throw new Error(response.message || 'Failed to add debt');
+}
+
+export async function recordPayment(id: string, data: RecordPaymentData): Promise<RecordPaymentResponse> {
+  const response = await apiClient.post<RecordPaymentResponse>(`/api/ledgers/${id}/payments`, data);
+  if (response.success && response.data) {
+    return response.data;
+  }
+  throw new Error(response.message || 'Failed to record payment');
 }

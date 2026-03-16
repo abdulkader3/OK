@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { createLedger } from '@/services/ledgerService';
 import { recordPayment, RecordPaymentData } from '@/services/paymentService';
+import { uploadReceipt } from '@/services/uploadService';
 import { contactsApi } from '@/src/services/contacts';
 import { generateIdempotencyKey } from '@/utils/generateIdempotencyKey';
 import { usePermissions } from '../src/hooks/usePermissions';
@@ -20,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ImagePickerField } from '@/src/components/sales/ImagePickerField';
 
 type ModalMode = 'payment' | 'create' | 'contact';
 
@@ -73,7 +75,8 @@ export default function RecordPaymentModal() {
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank' | 'other'>('cash');
   const [note, setNote] = useState('');
-  const [receiptAttached, setReceiptAttached] = useState(false);
+  const [receiptUri, setReceiptUri] = useState<string | undefined>();
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   // Contact state
   const [contactName, setContactName] = useState('');
@@ -137,11 +140,26 @@ export default function RecordPaymentModal() {
 
     try {
       const idempotencyKey = generateIdempotencyKey();
+      
+      let receiptUrl: string | undefined;
+      if (receiptUri) {
+        setUploadingReceipt(true);
+        try {
+          const uploadResult = await uploadReceipt(receiptUri);
+          receiptUrl = uploadResult.data?.url;
+        } catch (uploadError) {
+          console.error('Receipt upload failed:', uploadError);
+          Alert.alert(t('common.warning'), 'Failed to upload receipt. Recording payment without receipt.');
+        } finally {
+          setUploadingReceipt(false);
+        }
+      }
+
       const paymentData: RecordPaymentData = {
         amount: parsedAmount,
         method: paymentMethod,
         note: note.trim() || undefined,
-        receiptUrl: receiptAttached ? 'uploaded-url' : undefined,
+        receiptUrl,
         quick: parsedAmount === outstandingBalance,
       };
 
@@ -480,25 +498,17 @@ export default function RecordPaymentModal() {
 {/* Receipt Upload */}
             <View style={styles.section}>
               <Text style={styles.label}>{t('modal.receiptOptional')}</Text>
-              <TouchableOpacity
-                style={[styles.receiptBtn, Shadow.sm, receiptAttached && styles.receiptBtnActive]}
-                onPress={() => setReceiptAttached(!receiptAttached)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons
-                  name={receiptAttached ? 'check-circle' : 'attach-file'}
-                  size={20}
-                  color={receiptAttached ? Colors.light.accent : Colors.light.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.receiptBtnText,
-                    receiptAttached && styles.receiptBtnTextActive,
-                  ]}
-                >
-                  {receiptAttached ? t('modal.receiptAttached') : t('modal.attachReceipt')}
-                </Text>
-              </TouchableOpacity>
+              <ImagePickerField
+                label=""
+                value={receiptUri}
+                onChange={setReceiptUri}
+              />
+              {uploadingReceipt && (
+                <View style={styles.uploadingContainer}>
+                  <ActivityIndicator size="small" color={Colors.light.primary} />
+                  <Text style={styles.uploadingText}>Uploading receipt...</Text>
+                </View>
+              )}
             </View>
           </>
         )}
@@ -915,5 +925,16 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.light.textSecondary,
     fontWeight: FontWeight.medium,
+  },
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  uploadingText: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
   },
 });
