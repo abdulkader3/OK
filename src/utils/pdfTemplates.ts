@@ -20,6 +20,7 @@ export interface LedgerPDFTranslations {
   'ledger.pdf.total': string;
   'ledger.pdf.detailTitle': string;
   'ledger.pdf.initialAmount': string;
+  'ledger.pdf.totalAmount': string;
   'ledger.pdf.outstandingBalance': string;
   'ledger.pdf.totalPaid': string;
   'ledger.pdf.paymentHistory': string;
@@ -308,10 +309,30 @@ export function generateLedgerDetailPDFHtml(
   payments: Payment[],
   t: LedgerPDFTranslations
 ): string {
-  const totalPaid = ledger.initialAmount - ledger.outstandingBalance;
+  // Sort by recordedAt to get the first transaction (stable ordering)
+  const sortedPayments = [...payments].sort((a, b) => 
+    new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+  );
+  
+  const firstEntry = sortedPayments.length > 0 ? sortedPayments[0] : null;
+  const initialAmount = firstEntry ? Math.abs(firstEntry.amount) : 0;
+  
+  const totalPaid = payments
+    .filter(p => p.type === 'payment')
+    .reduce((sum, p) => sum + p.amount, 0);
+    
+  // Total adjustments (excluding the first entry if it's the initial)
+  const totalAdjustments = sortedPayments
+    .filter((p, index) => p.type === 'adjustment' && index > 0)
+    .reduce((sum, p) => sum + p.amount, 0);
+    
+  const totalAmount = initialAmount + totalAdjustments;
+    
+  const outstanding = totalAmount - totalPaid;
+  
   const typeLabel = getTypeLabel(ledger.type, t);
   const typeColor = ledger.type === 'i_owe' ? '#11d452' : '#E85D3A';
-  const statusColor = ledger.outstandingBalance === 0 ? '#11d452' : '#F5A623';
+  const statusColor = outstanding === 0 ? '#11d452' : '#F5A623';
 
   const paymentRows = payments.map(payment => `
     <tr>
@@ -398,6 +419,9 @@ export function generateLedgerDetailPDFHtml(
             font-weight: bold;
           }
           .summary-card.initial .value {
+            color: #1C2D3A;
+          }
+          .summary-card.total .value {
             color: #1C2D3A;
           }
           .summary-card.paid .value {
@@ -496,7 +520,11 @@ export function generateLedgerDetailPDFHtml(
           <div class="summary-grid">
             <div class="summary-card initial">
               <label>${t['ledger.pdf.initialAmount']}</label>
-              <div class="value">${formatCurrency(ledger.initialAmount, ledger.currency)}</div>
+              <div class="value">${formatCurrency(initialAmount, ledger.currency)}</div>
+            </div>
+            <div class="summary-card total">
+              <label>${t['ledger.pdf.totalAmount']}</label>
+              <div class="value">${formatCurrency(totalAmount, ledger.currency)}</div>
             </div>
             <div class="summary-card paid">
               <label>${t['ledger.pdf.totalPaid']}</label>
@@ -504,7 +532,7 @@ export function generateLedgerDetailPDFHtml(
             </div>
             <div class="summary-card outstanding">
               <label>${t['ledger.pdf.outstandingBalance']}</label>
-              <div class="value">${formatCurrency(ledger.outstandingBalance, ledger.currency)}</div>
+              <div class="value">${formatCurrency(outstanding, ledger.currency)}</div>
             </div>
           </div>
         </div>
@@ -522,7 +550,7 @@ export function generateLedgerDetailPDFHtml(
             </div>
             <div class="detail-item">
               <label>${t['ledger.pdf.status']}</label>
-              <div class="value" style="color: ${statusColor};">${getStatus(ledger.outstandingBalance, t)}</div>
+              <div class="value" style="color: ${statusColor};">${getStatus(outstanding, t)}</div>
             </div>
             <div class="detail-item">
               <label>${t['ledger.pdf.createdOn']}</label>

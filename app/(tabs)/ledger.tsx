@@ -60,6 +60,7 @@ export default function LedgerScreen() {
                 'ledger.pdf.total': t('ledger.pdf.total'),
                 'ledger.pdf.detailTitle': t('ledger.pdf.detailTitle'),
                 'ledger.pdf.initialAmount': t('ledger.pdf.initialAmount'),
+                'ledger.pdf.totalAmount': t('ledger.pdf.totalAmount'),
                 'ledger.pdf.outstandingBalance': t('ledger.pdf.outstandingBalance'),
                 'ledger.pdf.totalPaid': t('ledger.pdf.totalPaid'),
                 'ledger.pdf.paymentHistory': t('ledger.pdf.paymentHistory'),

@@ -7,7 +7,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -54,6 +54,17 @@ export default function LedgerDetailScreen() {
   const [addDebtLoading, setAddDebtLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  // Calculate initial amount from first transaction (sorted by recordedAt)
+  const computedInitialAmount = useMemo(() => {
+    if (payments.length === 0) return ledger?.initialAmount || 0;
+    
+    const sortedPayments = [...payments].sort((a, b) => 
+      new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+    );
+    const firstEntry = sortedPayments[0];
+    return Math.abs(firstEntry.amount);
+  }, [payments, ledger?.initialAmount]);
+
   const handleExportPDF = useCallback(async () => {
     if (!ledger) return;
     
@@ -79,6 +90,7 @@ export default function LedgerDetailScreen() {
         'ledger.pdf.total': t('ledger.pdf.total'),
         'ledger.pdf.detailTitle': t('ledger.pdf.detailTitle'),
         'ledger.pdf.initialAmount': t('ledger.pdf.initialAmount'),
+        'ledger.pdf.totalAmount': t('ledger.pdf.totalAmount'),
         'ledger.pdf.outstandingBalance': t('ledger.pdf.outstandingBalance'),
         'ledger.pdf.totalPaid': t('ledger.pdf.totalPaid'),
         'ledger.pdf.paymentHistory': t('ledger.pdf.paymentHistory'),
@@ -388,7 +400,7 @@ const handleDelete = () => {
 <View style={styles.amountRow}>
             <View style={styles.amountItem}>
               <Text style={styles.amountLabel}>{t('ledgerDetail.initial')}</Text>
-              <Text style={styles.amountValue}>${ledger.initialAmount.toFixed(2)}</Text>
+              <Text style={styles.amountValue}>${computedInitialAmount.toFixed(2)}</Text>
             </View>
             <View style={styles.amountItem}>
               <Text style={styles.amountLabel}>{t('ledgerDetail.outstanding')}</Text>
