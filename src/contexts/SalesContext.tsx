@@ -97,6 +97,12 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     updatePendingCount();
   }, []);
 
+  useEffect(() => {
+    if (!isLoading) {
+      fetchFromServer();
+    }
+  }, [isLoading]);
+
   const loadData = async () => {
     try {
       const [productsData, salesData] = await Promise.all([
