@@ -1,7 +1,9 @@
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import { 
   addToSyncQueue, 
   syncSalesBatch, 
@@ -103,6 +105,65 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoading]);
 
+  const syncAllRef = useRef<(() => Promise<void>) | null>(null);
+
+  const isOfflineRef = useRef<boolean | null>(null);
+
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerDebouncedSync = useCallback(() => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    
+    syncTimeoutRef.current = setTimeout(() => {
+      if (syncAllRef.current && !isSyncing) {
+        syncAllRef.current().catch((error) => {
+          console.error('[SalesContext] Debounced sync failed:', error);
+        });
+      }
+    }, 1500);
+  }, [isSyncing]);
+
+  useEffect(() => {
+    const unsubscribeNetInfo = NetInfo.addEventListener((state: NetInfoState) => {
+      const wasOffline = isOfflineRef.current;
+      const isNowOnline = state.isConnected === true && state.isInternetReachable !== false;
+      
+      isOfflineRef.current = !isNowOnline;
+
+      if (wasOffline === true && isNowOnline && !isLoading && syncAllRef.current) {
+        syncAllRef.current().catch((error) => {
+          console.error('[SalesContext] Network sync failed:', error);
+        });
+      }
+    });
+
+    NetInfo.fetch().then((state: NetInfoState) => {
+      isOfflineRef.current = !(state.isConnected === true && state.isInternetReachable !== false);
+    });
+
+    return () => {
+      unsubscribeNetInfo();
+    };
+  }, [isLoading]);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && !isLoading && syncAllRef.current) {
+        syncAllRef.current().catch((error) => {
+          console.error('[SalesContext] App state sync failed:', error);
+        });
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isLoading]);
+
   const loadData = async () => {
     try {
       const [productsData, salesData] = await Promise.all([
@@ -187,6 +248,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     });
 
     await updatePendingCount();
+
+    triggerDebouncedSync();
 
     return productWithImage;
   };
@@ -273,6 +336,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
 
     await updatePendingCount();
 
+    triggerDebouncedSync();
+
     return newSale;
   };
 
@@ -356,6 +421,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       setIsSyncing(false);
     }
   }, [isSyncing, products, sales]);
+
+  syncAllRef.current = syncAll;
 
   const handleRetryFailed = useCallback(async () => {
     await retryFailed();
