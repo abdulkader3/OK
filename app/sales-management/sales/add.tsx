@@ -202,8 +202,8 @@ export default function AddSaleScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.productImageContainer}>
-                    {item.imageUri ? (
-                      <Image source={{ uri: item.imageUri }} style={styles.productImage} contentFit="cover" />
+                    {item.imageUri || item.imageUrl ? (
+                      <Image source={{ uri: item.imageUri || item.imageUrl }} style={styles.productImage} contentFit="cover" />
                     ) : (
                       <View style={styles.productImagePlaceholder}>
                         <MaterialIcons name="inventory-2" size={24} color={Colors.light.textMuted} />

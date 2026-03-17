@@ -2,9 +2,12 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { addDebt, deleteLedger, getLedgerById, Ledger, updateLedger, UpdateLedgerData } from '@/services/ledgerService';
 import { getPaymentById, getPayments, Payment } from '@/services/paymentService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { generateLedgerDetailPDFHtml } from '@/src/utils/pdfTemplates';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -49,6 +52,75 @@ export default function LedgerDetailScreen() {
   const [addDebtAmount, setAddDebtAmount] = useState('');
   const [addDebtNote, setAddDebtNote] = useState('');
   const [addDebtLoading, setAddDebtLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportPDF = useCallback(async () => {
+    if (!ledger) return;
+    
+    try {
+      setExporting(true);
+      
+      const translations = {
+        'ledger.pdf.title': t('ledger.pdf.title'),
+        'ledger.pdf.totalLent': t('ledger.pdf.totalLent'),
+        'ledger.pdf.totalBorrowed': t('ledger.pdf.totalBorrowed'),
+        'ledger.pdf.netBalance': t('ledger.pdf.netBalance'),
+        'ledger.pdf.balance': t('ledger.pdf.balance'),
+        'ledger.pdf.dueDate': t('ledger.pdf.dueDate'),
+        'ledger.pdf.priority': t('ledger.pdf.priority'),
+        'ledger.pdf.status': t('ledger.pdf.status'),
+        'ledger.pdf.pending': t('ledger.pdf.pending'),
+        'ledger.pdf.settled': t('ledger.pdf.settled'),
+        'ledger.pdf.low': t('ledger.pdf.low'),
+        'ledger.pdf.medium': t('ledger.pdf.medium'),
+        'ledger.pdf.high': t('ledger.pdf.high'),
+        'ledger.pdf.generatedOn': t('ledger.pdf.generatedOn'),
+        'ledger.pdf.totalRecords': t('ledger.pdf.totalRecords'),
+        'ledger.pdf.total': t('ledger.pdf.total'),
+        'ledger.pdf.detailTitle': t('ledger.pdf.detailTitle'),
+        'ledger.pdf.initialAmount': t('ledger.pdf.initialAmount'),
+        'ledger.pdf.outstandingBalance': t('ledger.pdf.outstandingBalance'),
+        'ledger.pdf.totalPaid': t('ledger.pdf.totalPaid'),
+        'ledger.pdf.paymentHistory': t('ledger.pdf.paymentHistory'),
+        'ledger.pdf.paymentDate': t('ledger.pdf.paymentDate'),
+        'ledger.pdf.paymentType': t('ledger.pdf.paymentType'),
+        'ledger.pdf.paymentAmount': t('ledger.pdf.paymentAmount'),
+        'ledger.pdf.paymentMethod': t('ledger.pdf.paymentMethod'),
+        'ledger.pdf.recordedBy': t('ledger.pdf.recordedBy'),
+        'ledger.pdf.payment': t('ledger.pdf.payment'),
+        'ledger.pdf.adjustment': t('ledger.pdf.adjustment'),
+        'ledger.pdf.refund': t('ledger.pdf.refund'),
+        'ledger.pdf.cash': t('ledger.pdf.cash'),
+        'ledger.pdf.bank': t('ledger.pdf.bank'),
+        'ledger.pdf.other': t('ledger.pdf.other'),
+        'ledger.pdf.noPayments': t('ledger.pdf.noPayments'),
+        'ledger.pdf.createdOn': t('ledger.pdf.createdOn'),
+        'ledger.pdf.notes': t('ledger.pdf.notes'),
+        'ledger.pdf.tags': t('ledger.pdf.tags'),
+        'common.name': t('common.name'),
+        'common.type': t('common.type'),
+        'common.amount': t('common.amount'),
+      };
+      
+      const html = generateLedgerDetailPDFHtml(ledger, payments, translations);
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Export Ledger Details',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      Alert.alert('Export Failed', 'Unable to export ledger details. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  }, [ledger, payments, t]);
 
   const fetchData = async () => {
     try {
@@ -244,9 +316,22 @@ const handleDelete = () => {
             <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('ledgerDetail.title')}</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => setShowMenu(true)}>
-            <MaterialIcons name="more-vert" size={24} color={Colors.light.text} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity 
+              activeOpacity={0.7} 
+              onPress={handleExportPDF}
+              disabled={exporting}
+            >
+              {exporting ? (
+                <ActivityIndicator size="small" color={Colors.light.text} />
+              ) : (
+                <MaterialIcons name="file-download" size={24} color={Colors.light.text} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => setShowMenu(true)}>
+              <MaterialIcons name="more-vert" size={24} color={Colors.light.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Dropdown Menu */}

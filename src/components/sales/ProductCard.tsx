@@ -9,6 +9,7 @@ export interface Product {
   name: string;
   price: number;
   imageUri?: string;
+  imageUrl?: string;
   createdAt: string;
 }
 
@@ -33,8 +34,8 @@ export function ProductCard({ product, onPress, onEdit, onDelete, showActions = 
       disabled={!onPress}
     >
       <View style={styles.imageContainer}>
-        {product.imageUri ? (
-          <Image source={{ uri: product.imageUri }} style={styles.image} contentFit="cover" />
+        {product.imageUri || product.imageUrl ? (
+          <Image source={{ uri: product.imageUri || product.imageUrl }} style={styles.image} contentFit="cover" />
         ) : (
           <View style={styles.placeholderImage}>
             <MaterialIcons name="inventory-2" size={32} color={Colors.light.textMuted} />

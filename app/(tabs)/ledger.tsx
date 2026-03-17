@@ -4,10 +4,13 @@ import { FilterPills } from '@/components/filter-pills';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getLedgers, Ledger } from '@/services/ledgerService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { calculateSummary, generateLedgerPDFHtml } from '@/src/utils/pdfTemplates';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, ActivityIndicator, Modal, Pressable, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, ActivityIndicator, Modal, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type FilterType = 'All' | 'Lent' | 'Borrowed' | 'Overdue' | 'Settled';
@@ -24,6 +27,81 @@ export default function LedgerScreen() {
     const [showDateFilter, setShowDateFilter] = useState(false);
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [exporting, setExporting] = useState(false);
+
+    const handleExportPDF = useCallback(async () => {
+        try {
+            setExporting(true);
+            const response = await getLedgers({ limit: 1000 });
+            const allLedgers = response.ledgers || [];
+            
+            if (allLedgers.length === 0) {
+                Alert.alert('No Data', 'No ledgers to export.');
+                return;
+            }
+
+            const summary = calculateSummary(allLedgers);
+            const translations = {
+                'ledger.pdf.title': t('ledger.pdf.title'),
+                'ledger.pdf.totalLent': t('ledger.pdf.totalLent'),
+                'ledger.pdf.totalBorrowed': t('ledger.pdf.totalBorrowed'),
+                'ledger.pdf.netBalance': t('ledger.pdf.netBalance'),
+                'ledger.pdf.balance': t('ledger.pdf.balance'),
+                'ledger.pdf.dueDate': t('ledger.pdf.dueDate'),
+                'ledger.pdf.priority': t('ledger.pdf.priority'),
+                'ledger.pdf.status': t('ledger.pdf.status'),
+                'ledger.pdf.pending': t('ledger.pdf.pending'),
+                'ledger.pdf.settled': t('ledger.pdf.settled'),
+                'ledger.pdf.low': t('ledger.pdf.low'),
+                'ledger.pdf.medium': t('ledger.pdf.medium'),
+                'ledger.pdf.high': t('ledger.pdf.high'),
+                'ledger.pdf.generatedOn': t('ledger.pdf.generatedOn'),
+                'ledger.pdf.totalRecords': t('ledger.pdf.totalRecords'),
+                'ledger.pdf.total': t('ledger.pdf.total'),
+                'ledger.pdf.detailTitle': t('ledger.pdf.detailTitle'),
+                'ledger.pdf.initialAmount': t('ledger.pdf.initialAmount'),
+                'ledger.pdf.outstandingBalance': t('ledger.pdf.outstandingBalance'),
+                'ledger.pdf.totalPaid': t('ledger.pdf.totalPaid'),
+                'ledger.pdf.paymentHistory': t('ledger.pdf.paymentHistory'),
+                'ledger.pdf.paymentDate': t('ledger.pdf.paymentDate'),
+                'ledger.pdf.paymentType': t('ledger.pdf.paymentType'),
+                'ledger.pdf.paymentAmount': t('ledger.pdf.paymentAmount'),
+                'ledger.pdf.paymentMethod': t('ledger.pdf.paymentMethod'),
+                'ledger.pdf.recordedBy': t('ledger.pdf.recordedBy'),
+                'ledger.pdf.payment': t('ledger.pdf.payment'),
+                'ledger.pdf.adjustment': t('ledger.pdf.adjustment'),
+                'ledger.pdf.refund': t('ledger.pdf.refund'),
+                'ledger.pdf.cash': t('ledger.pdf.cash'),
+                'ledger.pdf.bank': t('ledger.pdf.bank'),
+                'ledger.pdf.other': t('ledger.pdf.other'),
+                'ledger.pdf.noPayments': t('ledger.pdf.noPayments'),
+                'ledger.pdf.createdOn': t('ledger.pdf.createdOn'),
+                'ledger.pdf.notes': t('ledger.pdf.notes'),
+                'ledger.pdf.tags': t('ledger.pdf.tags'),
+                'common.name': t('common.name'),
+                'common.type': t('common.type'),
+                'common.amount': t('common.amount'),
+            };
+            const html = generateLedgerPDFHtml(allLedgers, summary, translations);
+            
+            const { uri } = await Print.printToFileAsync({ html });
+            
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Export Ledger Report',
+                    UTI: 'com.adobe.pdf',
+                });
+            } else {
+                Alert.alert('Error', 'Sharing is not available on this device.');
+            }
+        } catch (err) {
+            console.error('Export error:', err);
+            Alert.alert('Export Failed', 'Unable to export ledger report. Please try again.');
+        } finally {
+            setExporting(false);
+        }
+    }, [t]);
 
     const fetchLedgers = useCallback(async () => {
         try {
@@ -106,9 +184,20 @@ export default function LedgerScreen() {
                 <View style={styles.header}>
                     <View style={{ width: 24 }} />
                     <Text style={styles.headerTitle}>{t('ledger.title')}</Text>
-                    <TouchableOpacity style={styles.exportBtn} activeOpacity={0.7}>
-                        <MaterialIcons name="file-download" size={18} color={Colors.light.primaryMuted} />
-                        <Text style={styles.exportText}>{t('ledger.export')}</Text>
+                    <TouchableOpacity 
+                        style={[styles.exportBtn, exporting && styles.exportBtnDisabled]} 
+                        activeOpacity={0.7}
+                        onPress={handleExportPDF}
+                        disabled={exporting}
+                    >
+                        {exporting ? (
+                            <ActivityIndicator size="small" color={Colors.light.primaryMuted} />
+                        ) : (
+                            <>
+                                <MaterialIcons name="file-download" size={18} color={Colors.light.primaryMuted} />
+                                <Text style={styles.exportText}>{t('ledger.export')}</Text>
+                            </>
+                        )}
                     </TouchableOpacity>
                 </View>
 
@@ -307,6 +396,9 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm,
         fontWeight: FontWeight.medium,
         color: Colors.light.primaryMuted,
+    },
+    exportBtnDisabled: {
+        opacity: 0.6,
     },
     scrollContent: {
         paddingHorizontal: Spacing.xl,
