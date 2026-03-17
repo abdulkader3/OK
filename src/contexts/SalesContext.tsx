@@ -74,7 +74,7 @@ interface SalesContextType {
   lastSyncTime: string | null;
   syncAll: () => Promise<void>;
   retryFailed: () => Promise<void>;
-  fetchFromServer: () => Promise<void>;
+  fetchFromServer: (currentProducts?: Product[], currentSales?: Sale[]) => Promise<void>;
   getTodaySalesTotal: () => number;
   getSalesTotalForDays: (days: number) => number;
 }
@@ -361,9 +361,11 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       await updatePendingCount();
       
       // Step 2: Apply server-assigned IDs to local records (persist first)
+      // Use current products/sales from state (not stale closure)
+      let updatedProducts = [...products];
+      let updatedSales = [...sales];
+      
       if (syncResult.success && syncResult.results.length > 0) {
-        const updatedProducts = [...products];
-        const updatedSales = [...sales];
         
         for (const result of syncResult.results) {
           if (result.success && result.serverAssignedId) {
@@ -413,8 +415,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       const syncTime = await getLastSyncTime();
       setLastSyncTime(syncTime);
       
-      // Step 3: Fetch from server and merge
-      await fetchFromServer();
+      // Step 3: Fetch from server and merge (pass updated data to avoid stale closure)
+      await fetchFromServer(updatedProducts, updatedSales);
     } catch (error) {
       console.error('Sync failed:', error);
     } finally {
@@ -429,7 +431,10 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     await syncAll();
   }, [syncAll]);
 
-  const fetchFromServer = useCallback(async () => {
+  const fetchFromServer = useCallback(async (currentProducts?: Product[], currentSales?: Sale[]) => {
+    // Use passed parameters if available, otherwise use closure values
+    const localProducts = currentProducts ?? products;
+    const localSales = currentSales ?? sales;
     try {
       // Get last sync timestamp for incremental sync
       const lastSync = await getLastSyncTime();
@@ -448,17 +453,24 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         // Only keep local items that are NOT synced (pending/failed) 
         // AND are NOT already on server (check by clientTempId mapping)
         const idMapping = await getIdMapping();
-        const localPending = products.filter(p => {
+        const localPending = localProducts.filter(p => {
           if (p.syncStatus === 'synced') return false; // Already synced, don't include
           
           // Check if this item was synced (has server ID in mapping)
-          const wasSynced = Object.values(idMapping).includes(p._id) || 
-                           (p.clientTempId && Object.values(idMapping).includes(p.clientTempId));
+          const wasSynced = p.clientTempId && p.clientTempId in idMapping;
           return !wasSynced;
         });
         
         // Merge: local pending + unique server items
-        const mergedProducts = [...localPending, ...serverProducts];
+        // But we also need to include locally synced products (they're already in the products array)
+        const serverProductIds = new Set(serverProducts.map(p => p._id));
+        
+        // Keep local synced products that don't exist on server
+        const localSyncedProducts = localProducts.filter(p => 
+          p.syncStatus === 'synced' && !serverProductIds.has(p._id)
+        );
+        
+        const mergedProducts = [...localPending, ...localSyncedProducts, ...serverProducts];
         
         setProducts(mergedProducts);
         await saveProducts(mergedProducts);
@@ -488,15 +500,19 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         
         // Only keep local pending items that weren't synced
         const idMapping = await getIdMapping();
-        const localPending = sales.filter(s => {
+        const localPending = localSales.filter(s => {
           if (s.syncStatus === 'synced') return false;
           
-          const wasSynced = Object.values(idMapping).includes(s._id) ||
-                           (s.clientTempId && Object.values(idMapping).includes(s.clientTempId));
+          const wasSynced = s.clientTempId && s.clientTempId in idMapping;
           return !wasSynced;
         });
         
-        const mergedSales = [...localPending, ...serverSales];
+        // Keep local synced sales that don't exist on server
+        const localSyncedSales = localSales.filter(s => 
+          s.syncStatus === 'synced' && !serverSaleIds.has(s._id)
+        );
+        
+        const mergedSales = [...localPending, ...localSyncedSales, ...serverSales];
         
         setSales(mergedSales);
         await saveSales(mergedSales);
