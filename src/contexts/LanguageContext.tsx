@@ -56,6 +56,19 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'dashboard.filters.highAmount': 'High Amount',
     'dashboard.synced': 'Synced',
     'dashboard.pendingOperations': 'pending operation(s)',
+    'dashboard.monthlyBalance': 'Monthly Balance',
+    'dashboard.ledgerOwed': 'Ledger Owed',
+    'dashboard.bigBossPaid': 'Big Boss Paid',
+    'dashboard.balance': 'Balance',
+    'dashboard.previousMonth': 'Previous Month',
+    'dashboard.viewHistory': 'View History',
+    'dashboard.currentMonth': 'Current Month',
+    'dashboard.noMonthlyData': 'No data for this month',
+    
+    // Monthly Balance History
+    'monthlyHistory.title': 'Monthly Balance History',
+    'monthlyHistory.noHistory': 'No balance history yet',
+    'monthlyHistory.year': 'Year',
     
     // Big Boss
     'bigboss.title': 'Big Boss Management',
@@ -90,6 +103,13 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'bigboss.october': 'October',
     'bigboss.november': 'November',
     'bigboss.december': 'December',
+    'bigboss.pay': 'Pay',
+    'bigboss.paid': 'Paid',
+    'bigboss.unpaid': 'Unpaid',
+    'bigboss.payBill': 'Pay Bill',
+    'bigboss.unpayBill': 'Unpay Bill',
+    'bigboss.billPaid': 'Bill paid successfully',
+    'bigboss.billUnpaid': 'Bill marked as unpaid',
     
     // Salary
     'salary.title': 'Salary Management',
@@ -432,6 +452,19 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'dashboard.filters.highAmount': 'উচ্চ পরিমাণ',
     'dashboard.synced': 'সিঙ্ক হয়েছে',
     'dashboard.pendingOperations': 'টি মেয়াদী অপারেশন',
+    'dashboard.monthlyBalance': 'মাসিক ব্যালেন্স',
+    'dashboard.ledgerOwed': 'লেজারে পাওনা',
+    'dashboard.bigBossPaid': 'বিগ বস পেমেন্ট',
+    'dashboard.balance': 'ব্যালেন্স',
+    'dashboard.previousMonth': 'গত মাস',
+    'dashboard.viewHistory': 'ইতিহাস দেখুন',
+    'dashboard.currentMonth': 'বর্তমান মাস',
+    'dashboard.noMonthlyData': 'এই মাসে কোনো তথ্য নেই',
+    
+    // Monthly Balance History
+    'monthlyHistory.title': 'মাসিক ব্যালেন্স ইতিহাস',
+    'monthlyHistory.noHistory': 'কোনো ব্যালেন্স ইতিহাস নেই',
+    'monthlyHistory.year': 'বছর',
     
     // Contacts
     'contacts.title': 'যোগাযোগ',

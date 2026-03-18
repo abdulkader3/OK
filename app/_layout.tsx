@@ -121,6 +121,13 @@ function AuthNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="monthly-balance"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

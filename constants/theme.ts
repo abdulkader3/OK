@@ -27,6 +27,7 @@ export const Colors = {
     textSecondary: '#7A8B99',
     textMuted: '#A0ADB8',
     textInverse: '#FFFFFF',
+    white: '#FFFFFF',
     
     // UI
     tint: '#1C2D3A',

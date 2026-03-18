@@ -1,5 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getAllBills, BillListItem, BillsResponse, deleteBill, updateBill } from '@/src/services/bigBossService';
+import { payBill, unpayBill } from '@/src/services/monthlyBalanceService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -24,6 +25,45 @@ export default function AllBillsScreen() {
     const [editBillAmount, setEditBillAmount] = useState('');
     const [editBillDescription, setEditBillDescription] = useState('');
     const [updatingBill, setUpdatingBill] = useState(false);
+    const [payingBillId, setPayingBillId] = useState<string | null>(null);
+
+    const handlePayBill = async (billId: string, isPaid: boolean) => {
+        const action = isPaid ? 'unpay' : 'pay';
+        const confirmMessage = isPaid 
+            ? 'Do you want to mark this bill as unpaid? This will add the amount back to your monthly balance.'
+            : 'Do you want to mark this bill as paid? This will deduct the amount from your monthly balance.';
+        
+        Alert.alert(
+            isPaid ? 'Unpay Bill' : 'Pay Bill',
+            confirmMessage,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: isPaid ? 'Unpay' : 'Pay',
+                    onPress: async () => {
+                        setPayingBillId(billId);
+                        try {
+                            const result = isPaid 
+                                ? await unpayBill(billId)
+                                : await payBill(billId);
+                            
+                            // Check exact backend response
+                            if (result?.success === true && result?.data?.bill?.isPaid === true) {
+                                fetchBills();
+                                Alert.alert('Success', result?.message || `Bill ${action}d successfully`);
+                            } else {
+                                Alert.alert('Error', result?.message || `Failed to ${action} bill`);
+                            }
+                        } catch (err) {
+                            Alert.alert('Error', `Failed to ${action} bill`);
+                        } finally {
+                            setPayingBillId(null);
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     const fetchBills = useCallback(async () => {
         try {
@@ -177,19 +217,46 @@ export default function AllBillsScreen() {
                     </View>
                 )}
             </TouchableOpacity>
-            <View style={styles.cardActions}>
+            
+            <View style={styles.billActionsRow}>
                 <TouchableOpacity 
-                    onPress={() => handleEditBill(item)}
-                    style={styles.editButton}
+                    onPress={() => handlePayBill(item._id, !!item.isPaid)}
+                    style={[
+                        styles.payButton, 
+                        item.isPaid ? styles.paidButton : styles.unpaidButton
+                    ]}
+                    disabled={payingBillId === item._id}
                 >
-                    <MaterialIcons name="edit" size={20} color={Colors.light.primary} />
+                    {payingBillId === item._id ? (
+                        <ActivityIndicator size="small" color={Colors.light.white} />
+                    ) : (
+                        <>
+                            <MaterialIcons 
+                                name={item.isPaid ? "check-circle" : "payments"} 
+                                size={18} 
+                                color={Colors.light.white} 
+                            />
+                            <Text style={styles.payButtonText}>
+                                {item.isPaid ? 'Paid' : 'Pay'}
+                            </Text>
+                        </>
+                    )}
                 </TouchableOpacity>
-                <TouchableOpacity 
-                    onPress={() => handleDeleteBill(item._id)}
-                    style={styles.deleteButton}
-                >
-                    <MaterialIcons name="delete" size={20} color={Colors.light.error} />
-                </TouchableOpacity>
+                
+                <View style={styles.cardActions}>
+                    <TouchableOpacity 
+                        onPress={() => handleEditBill(item)}
+                        style={styles.editButton}
+                    >
+                        <MaterialIcons name="edit" size={20} color={Colors.light.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        onPress={() => handleDeleteBill(item._id)}
+                        style={styles.deleteButton}
+                    >
+                        <MaterialIcons name="delete" size={20} color={Colors.light.error} />
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );
@@ -387,16 +454,41 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     cardActions: {
-        position: 'absolute',
-        top: Spacing.sm,
-        right: Spacing.sm,
         flexDirection: 'row',
+    },
+    billActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: Colors.light.border,
+        marginTop: Spacing.sm,
     },
     editButton: {
         padding: Spacing.xs,
     },
     deleteButton: {
         padding: Spacing.xs,
+    },
+    payButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.md,
+        gap: Spacing.xs,
+    },
+    paidButton: {
+        backgroundColor: Colors.light.success,
+    },
+    unpaidButton: {
+        backgroundColor: Colors.light.primary,
+    },
+    payButtonText: {
+        fontSize: FontSize.sm,
+        fontWeight: FontWeight.semibold,
+        color: Colors.light.white,
     },
     billHeader: {
         flexDirection: 'row',

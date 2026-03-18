@@ -2,11 +2,13 @@ import { FABButton } from '@/components/fab-button';
 import { FilterPills } from '@/components/filter-pills';
 import { SummaryCard } from '@/components/summary-card';
 import { TransactionItem } from '@/components/transaction-item';
+import { MonthlyBalanceCard } from '@/components/MonthlyBalanceCard';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getDashboardSummary, DashboardLedger } from '@/services/dashboardService';
 import { getQueueLength, flushQueue } from '@/services/syncService';
 import { getAllBigBosses, getBigBossSummary } from '@/src/services/bigBossService';
 import { getSalarySummary, SalarySummary } from '@/src/services/salaryService';
+import { getMonthlySummary, MonthlyBalanceData } from '@/src/services/monthlyBalanceService';
 import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/src/contexts/LanguageContext';
@@ -44,6 +46,7 @@ export default function DashboardScreen() {
     totalPaid: number;
     totalPayments: number;
   } | null>(null);
+  const [monthlyBalance, setMonthlyBalance] = useState<MonthlyBalanceData | null>(null);
 
   useEffect(() => {
     setIsOnline(!isOffline);
@@ -91,9 +94,10 @@ export default function DashboardScreen() {
     if (!isAuthenticated) return;
     
     try {
-      const [data, bigBossSummaryData] = await Promise.all([
+      const [data, bigBossSummaryData, monthlyBalanceData] = await Promise.all([
         getDashboardSummary(),
         getBigBossSummary(),
+        getMonthlySummary(),
       ]);
       
       setSummary(data);
@@ -103,6 +107,10 @@ export default function DashboardScreen() {
           totalBigBosses: bigBossSummaryData.totalBigBosses,
           totalPaid: bigBossSummaryData.totalPaid,
         });
+      }
+      
+      if (monthlyBalanceData) {
+        setMonthlyBalance(monthlyBalanceData);
       }
       
       // Only fetch salary data if user is owner
@@ -250,6 +258,7 @@ export default function DashboardScreen() {
                 backgroundColor={Colors.light.cardOwed}
                 iconColor={Colors.light.primaryMuted}
                 amountColor={Colors.light.primary}
+                onPress={() => router.push('/monthly-balance' as any)}
               />
               <SummaryCard
                 icon="point-of-sale"
@@ -284,6 +293,14 @@ export default function DashboardScreen() {
               )}
             </View>
           </View>
+
+          {/* Monthly Balance Card */}
+          {monthlyBalance && (
+            <MonthlyBalanceCard
+              data={monthlyBalance}
+              onViewHistory={() => router.push('/monthly-balance' as any)}
+            />
+          )}
 
           {/* Filter Pills */}
           <FilterPills filters={[t('dashboard.filters.allActivity'), t('dashboard.filters.dueSoon'), t('dashboard.filters.highAmount')]} />

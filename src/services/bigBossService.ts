@@ -91,6 +91,8 @@ export interface BillListItem {
   attachment?: Attachment;
   createdBy: CreatedBy;
   createdAt: string;
+  isPaid?: boolean;
+  paidAt?: string;
 }
 
 export interface BillDetail {
