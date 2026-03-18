@@ -17,8 +17,10 @@ export interface Product {
 
 export interface SaleItem {
   productId?: string;
-  productName: string;
-  productPrice: number;
+  name?: string;
+  price?: number;
+  productName?: string;
+  productPrice?: number;
   quantity: number;
   subtotal: number;
 }
@@ -28,9 +30,11 @@ export interface Sale {
   clientTempId?: string;
   items: SaleItem[];
   total: number;
+  totalAmount?: number;
   ledgerId?: string;
   ledgerName?: string;
   ledgerDebtId?: string;
+  paymentStatus?: 'paid' | 'not_paid';
   syncStatus: SyncStatus;
   idempotencyKey?: string;
   recordedAtClient?: string;
@@ -126,8 +130,11 @@ export async function createSale(sale: CreateSaleRequest): Promise<ApiResponse<{
   return apiClient.post<{ sale: Sale; ledgerDebtCreated?: boolean }>('/api/sales', sale);
 }
 
-export async function getSales(page = 1, limit = 50): Promise<ApiResponse<{ sales: Sale[]; total: number }>> {
-  return apiClient.get<{ sales: Sale[]; total: number }>(`/api/sales?page=${page}&limit=${limit}`);
+export async function getSales(page = 1, limit = 50, dateFrom?: string, dateTo?: string): Promise<ApiResponse<{ sales: Sale[]; total: number }>> {
+  let endpoint = `/api/sales?page=${page}&limit=${limit}`;
+  if (dateFrom) endpoint += `&dateFrom=${encodeURIComponent(dateFrom)}`;
+  if (dateTo) endpoint += `&dateTo=${encodeURIComponent(dateTo)}`;
+  return apiClient.get<{ sales: Sale[]; total: number }>(endpoint);
 }
 
 export async function getSale(id: string): Promise<ApiResponse<{ sale: Sale }>> {
@@ -166,4 +173,41 @@ export async function getSyncStatus(since?: string): Promise<ApiResponse<SyncSta
 // Seed data API (for dev testing)
 export async function seedData(data: { products?: CreateProductRequest[]; sales?: CreateSaleRequest[] }): Promise<ApiResponse<{ success: boolean }>> {
   return apiClient.post<{ success: boolean }>('/api/dev/seed', data);
+}
+
+// Sales by Date API
+export interface GroupedSale {
+  date: string;
+  sales: Sale[];
+  totalAmount: number;
+  transactionCount: number;
+  paidCount: number;
+  unpaidCount: number;
+}
+
+export interface SalesSummary {
+  dateRange: {
+    from: string | null;
+    to: string | null;
+  };
+  totalAmount: number;
+  totalTransactions: number;
+  paidTransactions: number;
+  unpaidTransactions: number;
+  paidAmount: number;
+  unpaidAmount: number;
+}
+
+export async function getSalesByDate(dateFrom?: string, dateTo?: string): Promise<ApiResponse<{ groupedSales: GroupedSale[]; totalTransactions: number; totalAmount: number }>> {
+  let endpoint = '/api/sales/by-date?';
+  if (dateFrom) endpoint += `dateFrom=${encodeURIComponent(dateFrom)}&`;
+  if (dateTo) endpoint += `dateTo=${encodeURIComponent(dateTo)}`;
+  return apiClient.get(endpoint);
+}
+
+export async function getSalesSummary(dateFrom?: string, dateTo?: string): Promise<ApiResponse<{ summary: SalesSummary; sales: Sale[] }>> {
+  let endpoint = '/api/sales/summary?';
+  if (dateFrom) endpoint += `dateFrom=${encodeURIComponent(dateFrom)}&`;
+  if (dateTo) endpoint += `dateTo=${encodeURIComponent(dateTo)}`;
+  return apiClient.get(endpoint);
 }

@@ -1,31 +1,152 @@
-import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
 import { useSales } from '@/src/contexts/SalesContext';
 import { EmptyState } from '@/src/components/sales';
+import { getSalesByDate, getSalesSummary, GroupedSale, Sale } from '@/src/services/salesApi';
+import { generateSalesPDFHtml, SalesPDFTranslations, calculateSalesSummary } from '@/src/utils/salesPdfTemplates';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+type QuickFilter = 'today' | 'thisWeek' | 'thisMonth' | 'all' | 'custom';
+
+interface DateRange {
+  dateFrom: string | null;
+  dateTo: string | null;
+}
+
+function getDateRange(filter: QuickFilter): DateRange {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  
+  switch (filter) {
+    case 'today':
+      return { dateFrom: todayStr, dateTo: todayStr };
+    case 'thisWeek': {
+      const dayOfWeek = today.getDay();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - dayOfWeek);
+      return { 
+        dateFrom: startOfWeek.toISOString().split('T')[0], 
+        dateTo: todayStr 
+      };
+    }
+    case 'thisMonth': {
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { 
+        dateFrom: startOfMonth.toISOString().split('T')[0], 
+        dateTo: todayStr 
+      };
+    }
+    case 'all':
+      return { dateFrom: null, dateTo: null };
+    default:
+      return { dateFrom: null, dateTo: null };
+  }
+}
+
+function formatDateDisplay(dateString: string | null): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getDateLabel(dateString: string | null, t: (key: string) => string): string {
+  if (!dateString) return t('sales.allTime');
+  const today = new Date();
+  const date = new Date(dateString);
+  const todayStr = today.toISOString().split('T')[0];
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  if (dateString === todayStr) return t('sales.today');
+  if (dateString === yesterdayStr) return 'Yesterday';
+  return formatDateDisplay(dateString);
+}
 
 export default function SalesHistoryScreen() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { sales, deleteSale, isLoading } = useSales();
+  const { deleteSale } = useSales();
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [groupedSales, setGroupedSales] = useState<GroupedSale[]>([]);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  
+  const [showFilter, setShowFilter] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('today');
+  const [dateFrom, setDateFrom] = useState<Date>(new Date());
+  const [dateTo, setDateTo] = useState<Date>(new Date());
+  
+  const [exporting, setExporting] = useState(false);
+
+  const fetchSales = useCallback(async () => {
+    try {
+      const range = getDateRange(quickFilter);
+      const actualDateFrom = quickFilter === 'custom' 
+        ? dateFrom.toISOString().split('T')[0] 
+        : range.dateFrom;
+      const actualDateTo = quickFilter === 'custom'
+        ? dateTo.toISOString().split('T')[0]
+        : range.dateTo;
+
+      const response = await getSalesByDate(actualDateFrom || undefined, actualDateTo || undefined);
+      
+      if (response.success && response.data) {
+        setGroupedSales(response.data.groupedSales || []);
+        setTotalAmount(response.data.totalAmount || 0);
+        setTotalTransactions(response.data.totalTransactions || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching sales:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [quickFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    fetchSales();
+  }, [fetchSales]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSales();
+  }, [fetchSales]);
+
+  const handleQuickFilter = (filter: QuickFilter) => {
+    setQuickFilter(filter);
+    if (filter !== 'custom') {
+      setShowFilter(false);
+    }
+  };
+
+  const handleApplyCustomFilter = () => {
+    setQuickFilter('custom');
+    setShowFilter(false);
+  };
+
+  const handleClearFilter = () => {
+    setQuickFilter('all');
+    setDateFrom(new Date());
+    setDateTo(new Date());
+    setShowFilter(false);
+  };
 
   const formatCurrency = (amount: number) => {
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
   const handleDelete = (id: string) => {
@@ -43,11 +164,170 @@ export default function SalesHistoryScreen() {
     );
   };
 
-  if (isLoading) {
+  const handleExportPDF = useCallback(async () => {
+    try {
+      setExporting(true);
+      
+      const range = getDateRange(quickFilter);
+      const actualDateFrom = quickFilter === 'custom' 
+        ? dateFrom.toISOString().split('T')[0] 
+        : range.dateFrom;
+      const actualDateTo = quickFilter === 'custom'
+        ? dateTo.toISOString().split('T')[0]
+        : range.dateTo;
+
+      const response = await getSalesSummary(actualDateFrom || undefined, actualDateTo || undefined);
+      
+      if (!response.success || !response.data) {
+        Alert.alert('Error', 'Failed to fetch sales data');
+        return;
+      }
+
+      const allSales = response.data.sales || [];
+      
+      if (allSales.length === 0) {
+        Alert.alert(t('common.noResults'), t('sales.pdf.noSalesFound'));
+        return;
+      }
+
+      const translations: SalesPDFTranslations = {
+        'sales.pdf.title': t('sales.pdf.title'),
+        'sales.pdf.dateRange': t('sales.pdf.dateRange'),
+        'sales.pdf.totalSales': t('sales.pdf.totalSales'),
+        'sales.pdf.transactions': t('sales.pdf.transactions'),
+        'sales.pdf.paidSales': t('sales.pdf.paidSales'),
+        'sales.pdf.creditSales': t('sales.pdf.creditSales'),
+        'sales.pdf.generatedOn': t('sales.pdf.generatedOn'),
+        'sales.pdf.items': t('sales.pdf.items'),
+        'sales.pdf.quantity': t('sales.pdf.quantity'),
+        'sales.pdf.price': t('sales.pdf.price'),
+        'sales.pdf.subtotal': t('sales.pdf.subtotal'),
+        'sales.pdf.paymentStatus': t('sales.pdf.paymentStatus'),
+        'sales.pdf.paid': t('sales.pdf.paid'),
+        'sales.pdf.notPaid': t('sales.pdf.notPaid'),
+        'sales.pdf.customer': t('sales.pdf.customer'),
+        'sales.pdf.allTime': t('sales.pdf.allTime'),
+        'common.date': t('common.date'),
+        'common.amount': t('common.amount'),
+      };
+
+      const summary = calculateSalesSummary(allSales);
+      const html = generateSalesPDFHtml(allSales, summary, translations, actualDateFrom || undefined, actualDateTo || undefined);
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      const dateRangeStr = actualDateFrom && actualDateTo 
+        ? `${actualDateFrom}-to-${actualDateTo}` 
+        : actualDateFrom 
+          ? `from-${actualDateFrom}` 
+          : 'all';
+      const newUri = uri.replace('printed.pdf', `sales-${dateRangeStr}.pdf`);
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(newUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: t('sales.exportPdf'),
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      Alert.alert(t('sales.error'), 'Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  }, [quickFilter, dateFrom, dateTo, t]);
+
+  const getActiveFilterLabel = (): string => {
+    if (quickFilter === 'all') return t('sales.allTime');
+    if (quickFilter === 'today') return t('sales.today');
+    if (quickFilter === 'thisWeek') return t('sales.thisWeek');
+    if (quickFilter === 'thisMonth') return t('sales.thisMonth');
+    if (quickFilter === 'custom') {
+      return `${formatDateDisplay(dateFrom.toISOString().split('T')[0])} - ${formatDateDisplay(dateTo.toISOString().split('T')[0])}`;
+    }
+    return '';
+  };
+
+  const getCurrentDateRange = (): DateRange => {
+    const range = getDateRange(quickFilter);
+    return {
+      dateFrom: quickFilter === 'custom' ? dateFrom.toISOString().split('T')[0] : range.dateFrom,
+      dateTo: quickFilter === 'custom' ? dateTo.toISOString().split('T')[0] : range.dateTo,
+    };
+  };
+
+  const renderDateSection = ({ item }: { item: GroupedSale }) => (
+    <View style={styles.dateSection}>
+      <View style={styles.dateHeader}>
+        <View>
+          <Text style={styles.dateTitle}>{getDateLabel(item.date, t)}</Text>
+          <Text style={styles.dateSubtitle}>{item.transactionCount} {t('sales.pdf.transactions').toLowerCase()}</Text>
+        </View>
+        <Text style={styles.dateTotal}>{formatCurrency(item.totalAmount)}</Text>
+      </View>
+      <View style={styles.statusBadges}>
+        <View style={[styles.statusBadge, styles.paidBadge]}>
+          <MaterialIcons name="check-circle" size={14} color="#16a34a" />
+          <Text style={styles.paidBadgeText}>{item.paidCount} {t('sales.pdf.paid')}</Text>
+        </View>
+        {item.unpaidCount > 0 && (
+          <View style={[styles.statusBadge, styles.unpaidBadge]}>
+            <MaterialIcons name="warning" size={14} color="#dc2626" />
+            <Text style={styles.unpaidBadgeText}>{item.unpaidCount} {t('sales.pdf.notPaid')}</Text>
+          </View>
+        )}
+      </View>
+      {item.sales.map(sale => (
+        <TouchableOpacity
+          key={sale._id}
+          style={styles.saleCard}
+          onPress={() => router.push(`/sales-management/sales/${sale._id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.saleHeader}>
+            <View style={styles.saleInfo}>
+              <View style={styles.saleTopRow}>
+                <Text style={styles.saleTotal}>{formatCurrency(sale.totalAmount || sale.total || 0)}</Text>
+                <View style={[styles.paymentStatusBadge, sale.paymentStatus === 'not_paid' ? styles.unpaidStatusBadge : styles.paidStatusBadge]}>
+                  <Text style={[styles.paymentStatusText, sale.paymentStatus === 'not_paid' ? styles.unpaidStatusText : styles.paidStatusText]}>
+                    {sale.paymentStatus === 'not_paid' ? t('sales.pdf.notPaid') : t('sales.pdf.paid')}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.saleTime}>{formatTime(sale.createdAt)}</Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => handleDelete(sale._id)}
+              style={styles.deleteBtn}
+            >
+              <MaterialIcons name="delete-outline" size={20} color={Colors.light.error} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.saleDetails}>
+            <Text style={styles.itemCount}>
+              {sale.items.length} {sale.items.length === 1 ? 'item' : 'items'}
+            </Text>
+            {sale.ledgerName && (
+              <View style={styles.customerBadge}>
+                <MaterialIcons name="person" size={12} color={Colors.light.primaryMuted} />
+                <Text style={styles.customerName} numberOfLines={1}>{sale.ledgerName}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  if (loading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>{t('common.loading')}</Text>
+          <ActivityIndicator size="large" color={Colors.light.primary} />
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -65,9 +345,41 @@ export default function SalesHistoryScreen() {
             <MaterialIcons name="arrow-back" size={24} color={Colors.light.text} />
           </TouchableOpacity>
           <Text style={styles.title}>{t('sales.salesHistory')}</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              onPress={() => setShowFilter(true)}
+              style={styles.headerBtn}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="filter-list" size={24} color={Colors.light.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleExportPDF}
+              style={styles.headerBtn}
+              disabled={exporting}
+              activeOpacity={0.7}
+            >
+              {exporting ? (
+                <ActivityIndicator size="small" color={Colors.light.primary} />
+              ) : (
+                <MaterialIcons name="picture-as-pdf" size={24} color={Colors.light.primary} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {sales.length === 0 ? (
+        {quickFilter !== 'all' && (
+          <View style={styles.summaryBar}>
+            <Text style={styles.summaryText}>
+              {getActiveFilterLabel()}: {formatCurrency(totalAmount)}
+            </Text>
+            <Text style={styles.summarySubtext}>
+              {totalTransactions} {t('sales.pdf.transactions').toLowerCase()}
+            </Text>
+          </View>
+        )}
+
+        {groupedSales.length === 0 ? (
           <EmptyState
             icon="receipt-long"
             title={t('sales.noSales')}
@@ -75,43 +387,99 @@ export default function SalesHistoryScreen() {
           />
         ) : (
           <FlatList
-            data={sales}
-            keyExtractor={(item) => item._id}
+            data={groupedSales}
+            keyExtractor={(item) => item.date}
+            renderItem={renderDateSection}
             contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.saleCard}
-                onPress={() => router.push(`/sales-management/sales/${item._id}`)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.saleHeader}>
-                  <View style={styles.saleInfo}>
-                    <Text style={styles.saleTotal}>{formatCurrency(item.totalAmount || item.total || 0)}</Text>
-                    <Text style={styles.saleDate}>{formatDate(item.createdAt)}</Text>
-                  </View>
-                  <View style={styles.saleActions}>
-                    {item.ledgerName && (
-                      <View style={styles.ledgerBadge}>
-                        <MaterialIcons name="person" size={14} color={Colors.light.primaryMuted} />
-                        <Text style={styles.ledgerName} numberOfLines={1}>{item.ledgerName}</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity 
-                      onPress={() => handleDelete(item._id)}
-                      style={styles.deleteBtn}
-                    >
-                      <MaterialIcons name="delete-outline" size={20} color={Colors.light.error} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <Text style={styles.itemCount}>
-                  {item.items.length} {item.items.length === 1 ? 'item' : 'items'}
-                </Text>
-              </TouchableOpacity>
-            )}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ItemSeparatorComponent={() => <View style={styles.sectionSeparator} />}
           />
         )}
+
+        <Modal
+          visible={showFilter}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowFilter(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowFilter(false)}>
+            <Pressable style={styles.filterModal} onPress={() => {}}>
+              <View style={styles.filterHeader}>
+                <Text style={styles.filterTitle}>{t('sales.filterByDate')}</Text>
+                <TouchableOpacity onPress={() => setShowFilter(false)}>
+                  <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.quickFilters}>
+                <TouchableOpacity
+                  style={[styles.quickFilterBtn, quickFilter === 'today' && styles.quickFilterActive]}
+                  onPress={() => handleQuickFilter('today')}
+                >
+                  <Text style={[styles.quickFilterText, quickFilter === 'today' && styles.quickFilterTextActive]}>
+                    {t('sales.today')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickFilterBtn, quickFilter === 'thisWeek' && styles.quickFilterActive]}
+                  onPress={() => handleQuickFilter('thisWeek')}
+                >
+                  <Text style={[styles.quickFilterText, quickFilter === 'thisWeek' && styles.quickFilterTextActive]}>
+                    {t('sales.thisWeek')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickFilterBtn, quickFilter === 'thisMonth' && styles.quickFilterActive]}
+                  onPress={() => handleQuickFilter('thisMonth')}
+                >
+                  <Text style={[styles.quickFilterText, quickFilter === 'thisMonth' && styles.quickFilterTextActive]}>
+                    {t('sales.thisMonth')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickFilterBtn, quickFilter === 'all' && styles.quickFilterActive]}
+                  onPress={() => handleQuickFilter('all')}
+                >
+                  <Text style={[styles.quickFilterText, quickFilter === 'all' && styles.quickFilterTextActive]}>
+                    {t('sales.allTime')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.customDateSection}>
+                <Text style={styles.customDateLabel}>{t('sales.filterByDate')}</Text>
+                <View style={styles.dateInputs}>
+                  <View style={styles.dateInput}>
+                    <MaterialIcons name="calendar-today" size={18} color={Colors.light.textSecondary} />
+                    <Text style={styles.dateInputText}>{formatDateDisplay(dateFrom.toISOString().split('T')[0])}</Text>
+                  </View>
+                  <Text style={styles.dateSeparator}>-</Text>
+                  <View style={styles.dateInput}>
+                    <MaterialIcons name="calendar-today" size={18} color={Colors.light.textSecondary} />
+                    <Text style={styles.dateInputText}>{formatDateDisplay(dateTo.toISOString().split('T')[0])}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.filterActions}>
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={handleClearFilter}
+                >
+                  <Text style={styles.clearBtnText}>{t('sales.clearFilter')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.applyBtn}
+                  onPress={handleApplyCustomFilter}
+                >
+                  <Text style={styles.applyBtnText}>{t('sales.applyFilter')}</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -130,6 +498,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: Spacing.md,
+  },
+  loadingText: {
+    fontSize: FontSize.md,
+    color: Colors.light.textSecondary,
   },
   header: {
     flexDirection: 'row',
@@ -142,20 +515,100 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
   },
   title: {
+    flex: 1,
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
     color: Colors.light.text,
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  headerBtn: {
+    padding: Spacing.xs,
+  },
+  summaryBar: {
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+  },
+  summaryText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.primary,
+  },
+  summarySubtext: {
+    fontSize: FontSize.sm,
+    color: Colors.light.primaryMuted || '#60a5fa',
+    marginTop: 2,
+  },
   listContent: {
     padding: Spacing.lg,
   },
-  separator: {
-    height: Spacing.md,
+  sectionSeparator: {
+    height: Spacing.lg,
+  },
+  dateSection: {
+    marginBottom: Spacing.sm,
+  },
+  dateHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  dateTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  dateSubtitle: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
+  },
+  dateTotal: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.primary,
+  },
+  statusBadges: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  paidBadge: {
+    backgroundColor: '#dcfce7',
+  },
+  unpaidBadge: {
+    backgroundColor: '#fef2f2',
+  },
+  paidBadgeText: {
+    fontSize: FontSize.xs,
+    color: '#16a34a',
+    fontWeight: FontWeight.medium,
+  },
+  unpaidBadgeText: {
+    fontSize: FontSize.xs,
+    color: '#dc2626',
+    fontWeight: FontWeight.medium,
   },
   saleCard: {
     backgroundColor: Colors.light.surface,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    ...Shadow.sm,
   },
   saleHeader: {
     flexDirection: 'row',
@@ -165,41 +618,183 @@ const styles = StyleSheet.create({
   saleInfo: {
     flex: 1,
   },
+  saleTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   saleTotal: {
-    fontSize: FontSize.xl,
+    fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
     color: Colors.light.primary,
-    marginBottom: Spacing.xs,
   },
-  saleDate: {
+  paymentStatusBadge: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  paidStatusBadge: {
+    backgroundColor: '#dcfce7',
+  },
+  unpaidStatusBadge: {
+    backgroundColor: '#fef2f2',
+  },
+  paymentStatusText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.medium,
+  },
+  paidStatusText: {
+    color: '#16a34a',
+  },
+  unpaidStatusText: {
+    color: '#dc2626',
+  },
+  saleTime: {
     fontSize: FontSize.sm,
     color: Colors.light.textSecondary,
+    marginTop: 2,
   },
   saleActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  ledgerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    backgroundColor: Colors.light.backgroundAlt,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-  },
-  ledgerName: {
-    fontSize: FontSize.xs,
-    color: Colors.light.textSecondary,
-    maxWidth: 100,
-  },
   deleteBtn: {
     padding: Spacing.xs,
+  },
+  saleDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
   },
   itemCount: {
     fontSize: FontSize.sm,
     color: Colors.light.textMuted,
-    marginTop: Spacing.sm,
+  },
+  customerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.light.backgroundAlt,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  customerName: {
+    fontSize: FontSize.xs,
+    color: Colors.light.textSecondary,
+    maxWidth: 80,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModal: {
+    backgroundColor: Colors.light.surface,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  filterTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  quickFilters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  quickFilterBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.light.backgroundAlt,
+    borderWidth: 1,
+    borderColor: Colors.light.border || '#e5e7eb',
+  },
+  quickFilterActive: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  quickFilterText: {
+    fontSize: FontSize.sm,
+    color: Colors.light.text,
+    fontWeight: FontWeight.medium,
+  },
+  quickFilterTextActive: {
+    color: '#ffffff',
+  },
+  customDateSection: {
+    marginBottom: Spacing.lg,
+  },
+  customDateLabel: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.text,
+    marginBottom: Spacing.sm,
+  },
+  dateInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  dateInput: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.light.backgroundAlt,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.light.border || '#e5e7eb',
+  },
+  dateInputText: {
+    fontSize: FontSize.sm,
+    color: Colors.light.text,
+  },
+  dateSeparator: {
+    fontSize: FontSize.lg,
+    color: Colors.light.textSecondary,
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  clearBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.light.backgroundAlt,
+    alignItems: 'center',
+  },
+  clearBtnText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.text,
+  },
+  applyBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.light.primary,
+    alignItems: 'center',
+  },
+  applyBtnText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.semibold,
+    color: '#ffffff',
   },
 });
