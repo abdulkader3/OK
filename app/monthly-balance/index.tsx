@@ -1,5 +1,6 @@
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { getMonthlyHistory, getMonthlySummary, MonthlyHistoryItem, MonthlyBalanceData } from '@/src/services/monthlyBalanceService';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ const MONTH_NAMES_BN = [
 export default function MonthlyBalanceHistoryScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const { formatMoney } = useCurrency();
   const [history, setHistory] = useState<MonthlyHistoryItem[]>([]);
   const [currentMonth, setCurrentMonth] = useState<MonthlyBalanceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ export default function MonthlyBalanceHistoryScreen() {
 
   const formatCurrency = (amount: string) => {
     const num = parseFloat(amount);
-    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(num);
   };
 
   const fetchData = useCallback(async () => {

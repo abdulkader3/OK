@@ -1,4 +1,5 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -15,15 +16,13 @@ export function TotalSummaryBar({
   onButtonPress, 
   buttonDisabled = false 
 }: TotalSummaryBarProps) {
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const { formatMoney } = useCurrency();
 
   return (
     <View style={[styles.container, Shadow.lg]}>
       <View style={styles.totalContainer}>
         <Text style={styles.totalLabel}>Total</Text>
-        <Text style={styles.totalAmount}>{formatCurrency(total)}</Text>
+        <Text style={styles.totalAmount}>{formatMoney(total)}</Text>
       </View>
       <TouchableOpacity
         style={[styles.button, buttonDisabled && styles.buttonDisabled]}

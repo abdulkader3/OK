@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getBillById, BillDetail } from '@/src/services/bigBossService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -11,6 +12,7 @@ export default function BillDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
     
     const [bill, setBill] = useState<BillDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function BillDetailScreen() {
     }, [fetchBill]);
 
     const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return formatMoney(amount);
     };
 
     const getMonthName = (month: number) => {

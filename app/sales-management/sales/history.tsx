@@ -1,5 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { useSales } from '@/src/contexts/SalesContext';
 import { EmptyState } from '@/src/components/sales';
 import { getSalesByDate, getSalesSummary, GroupedSale, Sale } from '@/src/services/salesApi';
@@ -72,6 +73,7 @@ function getDateLabel(dateString: string | null, t: (key: string) => string): st
 
 export default function SalesHistoryScreen() {
   const { t } = useLanguage();
+  const { formatMoney, currency } = useCurrency();
   const router = useRouter();
   const { deleteSale, syncAll, isSyncing } = useSales();
 
@@ -154,7 +156,7 @@ export default function SalesHistoryScreen() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(amount);
   };
 
   const formatTime = (dateString: string) => {
@@ -227,7 +229,7 @@ export default function SalesHistoryScreen() {
       };
 
       const summary = calculateSalesSummary(allSales);
-      const html = generateSalesPDFHtml(allSales, summary, translations, actualDateFrom || undefined, actualDateTo || undefined);
+      const html = generateSalesPDFHtml(allSales, summary, translations, currency, actualDateFrom || undefined, actualDateTo || undefined);
 
       const { uri } = await Print.printToFileAsync({ html });
       

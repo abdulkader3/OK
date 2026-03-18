@@ -6,6 +6,7 @@ import { contactsApi } from '@/src/services/contacts';
 import { generateIdempotencyKey } from '@/utils/generateIdempotencyKey';
 import { usePermissions } from '../src/hooks/usePermissions';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
@@ -30,6 +31,7 @@ export default function RecordPaymentModal() {
   const params = useLocalSearchParams<{ ledgerId?: string; outstandingBalance?: string; contactId?: string; settleAmount?: string }>();
   const { canCreateLedger, canRecordPayment } = usePermissions();
   const { t } = useLanguage();
+  const { currencySymbol, formatMoney } = useCurrency();
   
   const ledgerId = params.ledgerId;
   const contactId = params.contactId;
@@ -170,7 +172,7 @@ export default function RecordPaymentModal() {
       } else {
         Alert.alert(
           t('common.success'),
-          `${t('modal.paymentRecorded')}\n\nRecorded by: ${result.payment.recordedBy.name}\n${t('modal.newBalance')} $${result.payment.newOutstanding.toFixed(2)}`,
+          `${t('modal.paymentRecorded')}\n\nRecorded by: ${result.payment.recordedBy.name}\n${t('modal.newBalance')} ${formatMoney(result.payment.newOutstanding)}`,
           [{ text: 'OK', onPress: () => router.back() }]
         );
       }
@@ -282,7 +284,7 @@ export default function RecordPaymentModal() {
           <>
             <Text style={styles.outstandingLabel}>
               {t('modal.outstandingBalance')}{' '}
-              <Text style={styles.outstandingAmount}>${outstandingBalance.toFixed(2)}</Text>
+              <Text style={styles.outstandingAmount}>{formatMoney(outstandingBalance)}</Text>
             </Text>
             <Text style={styles.helpText}>
               {t('modal.partialPaymentHelp')}
@@ -365,7 +367,7 @@ export default function RecordPaymentModal() {
             <View style={styles.section}>
               <Text style={styles.label}>{t('modal.initialAmount')}</Text>
               <View style={[styles.amountInputContainer, Shadow.sm]}>
-                <Text style={styles.dollarSign}>$</Text>
+                <Text style={styles.dollarSign}>{currencySymbol}</Text>
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0.00"
@@ -401,7 +403,7 @@ export default function RecordPaymentModal() {
             <View style={styles.section}>
               <Text style={styles.label}>{t('modal.paymentAmount')}</Text>
               <View style={[styles.amountInputContainer, Shadow.sm]}>
-                <Text style={styles.dollarSign}>$</Text>
+                <Text style={styles.dollarSign}>{currencySymbol}</Text>
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0.00"

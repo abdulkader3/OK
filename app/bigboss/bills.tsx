@@ -2,6 +2,7 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { getAllBills, BillListItem, BillsResponse, deleteBill, updateBill } from '@/src/services/bigBossService';
 import { payBill, unpayBill } from '@/src/services/monthlyBalanceService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -11,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function AllBillsScreen() {
     const router = useRouter();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
     
     const [billsResponse, setBillsResponse] = useState<BillsResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ export default function AllBillsScreen() {
     }, [fetchBills]);
 
     const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return formatMoney(amount);
     };
 
     const getMonthName = (month: number) => {

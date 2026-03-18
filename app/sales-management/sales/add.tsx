@@ -1,5 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { useSales, SaleItem as SaleItemType } from '@/src/contexts/SalesContext';
 import { EmptyState, ProductCard, SaleItemRow, TotalSummaryBar } from '@/src/components/sales';
 import { getLedgers, Ledger } from '@/src/services/ledgerService';
@@ -16,6 +17,7 @@ interface CartItem extends SaleItemType {
 
 export default function AddSaleScreen() {
   const { t } = useLanguage();
+  const { formatMoney } = useCurrency();
   const router = useRouter();
   const { products, addSale, sales } = useSales();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -145,7 +147,7 @@ export default function AddSaleScreen() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(amount);
   };
 
   return (

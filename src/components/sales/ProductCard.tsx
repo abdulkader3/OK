@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 export interface Product {
   _id: string;
@@ -22,9 +23,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onPress, onEdit, onDelete, showActions = false }: ProductCardProps) {
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const { formatMoney } = useCurrency();
 
   return (
     <TouchableOpacity 
@@ -44,7 +43,7 @@ export function ProductCard({ product, onPress, onEdit, onDelete, showActions = 
       </View>
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
-        <Text style={styles.price}>{formatCurrency(product.price)}</Text>
+        <Text style={styles.price}>{formatMoney(product.price)}</Text>
       </View>
       {showActions && (
         <View style={styles.actions}>

@@ -2,6 +2,7 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { updateProfile, changePassword } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage, Language } from '@/src/contexts/LanguageContext';
+import { useCurrency, Currency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,9 +28,11 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const { currency, setCurrency } = useCurrency();
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
+  const [showCurrency, setShowCurrency] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const [name, setName] = useState(user?.name || '');
@@ -201,6 +204,26 @@ export default function SettingsScreen() {
                 <View style={styles.languageValue}>
                   <Text style={styles.menuItemValue}>
                     {language === 'en' ? t('settings.english') : t('settings.bangla')}
+                  </Text>
+                  <MaterialIcons name="chevron-right" size={22} color={Colors.light.textMuted} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Currency Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('settings.currency')}</Text>
+            <View style={[styles.card, Shadow.sm]}>
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => setShowCurrency(true)}
+              >
+                <MaterialIcons name="attach-money" size={22} color={Colors.light.textSecondary} />
+                <Text style={styles.menuItemText}>{t('settings.currency')}</Text>
+                <View style={styles.languageValue}>
+                  <Text style={styles.menuItemValue}>
+                    {currency === 'BDT' ? t('settings.bangladeshiTaka') : t('settings.saudiRiyal')}
                   </Text>
                   <MaterialIcons name="chevron-right" size={22} color={Colors.light.textMuted} />
                 </View>
@@ -478,6 +501,78 @@ export default function SettingsScreen() {
                       </Text>
                     </View>
                     {language === 'bn' && (
+                      <MaterialIcons name="check" size={24} color={Colors.light.primary} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </KeyboardAvoidingView>
+          </Pressable>
+        </Modal>
+
+        {/* Currency Modal */}
+        <Modal
+          visible={showCurrency}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowCurrency(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowCurrency(false)}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalKeyboardView}
+            >
+              <Pressable style={[styles.modalContent, Shadow.lg]} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{t('settings.currency')}</Text>
+                  <TouchableOpacity onPress={() => setShowCurrency(false)}>
+                    <MaterialIcons name="close" size={24} color={Colors.light.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalBody}>
+                  <TouchableOpacity
+                    style={[
+                      styles.languageOption,
+                      currency === 'BDT' && styles.languageOptionActive,
+                    ]}
+                    onPress={() => {
+                      setCurrency('BDT');
+                      setShowCurrency(false);
+                    }}
+                  >
+                    <View style={styles.languageOptionContent}>
+                      <Text style={[
+                        styles.languageOptionText,
+                        currency === 'BDT' && styles.languageOptionTextActive,
+                      ]}>
+                        {t('settings.bangladeshiTaka')}
+                      </Text>
+                    </View>
+                    {currency === 'BDT' && (
+                      <MaterialIcons name="check" size={24} color={Colors.light.primary} />
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.languageOption,
+                      currency === 'SAR' && styles.languageOptionActive,
+                    ]}
+                    onPress={() => {
+                      setCurrency('SAR');
+                      setShowCurrency(false);
+                    }}
+                  >
+                    <View style={styles.languageOptionContent}>
+                      <Text style={[
+                        styles.languageOptionText,
+                        currency === 'SAR' && styles.languageOptionTextActive,
+                      ]}>
+                        {t('settings.saudiRiyal')}
+                      </Text>
+                    </View>
+                    {currency === 'SAR' && (
                       <MaterialIcons name="check" size={24} color={Colors.light.primary} />
                     )}
                   </TouchableOpacity>

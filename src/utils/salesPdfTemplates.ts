@@ -94,27 +94,11 @@ export function calculateSalesSummary(sales: Sale[]): SalesSummaryData {
   };
 }
 
-function generateItemsHtml(items: SaleItem[]): string {
-  if (!items || items.length === 0) return '<td colspan="4">-</td>';
-
-  return items
-    .map(
-      (item) => `
-    <tr>
-      <td>${item.name || item.productName || "Item"}</td>
-      <td style="text-align:center">${item.quantity}</td>
-      <td style="text-align:right">${formatCurrency(item.price || item.productPrice || 0)}</td>
-      <td style="text-align:right">${formatCurrency(item.subtotal || 0)}</td>
-    </tr>
-  `,
-    )
-    .join("");
-}
-
 export function generateSalesPDFHtml(
   sales: Sale[],
   summary: SalesSummaryData,
   translations: SalesPDFTranslations,
+  currency: string = 'BDT',
   dateFrom?: string,
   dateTo?: string,
 ): string {
@@ -133,7 +117,7 @@ export function generateSalesPDFHtml(
       <td>
         ${sale.items.map((item) => `<div>${item.name || item.productName || "Item"} x${item.quantity}</div>`).join("")}
       </td>
-      <td style="text-align:right">${formatCurrency(sale.totalAmount || sale.total || 0)}</td>
+      <td style="text-align:right">${formatCurrency(sale.totalAmount || sale.total || 0, currency)}</td>
       <td>
         <span style="padding:4px 8px;border-radius:4px;font-size:11px;background:${sale.paymentStatus === "not_paid" ? "#fee2e2" : "#dcfce7"};color:${sale.paymentStatus === "not_paid" ? "#dc2626" : "#16a34a"}">
           ${sale.paymentStatus === "not_paid" 
@@ -192,7 +176,7 @@ export function generateSalesPDFHtml(
       <div class="summary-grid">
         <div class="summary-card highlight">
           <div class="label">${translations["sales.pdf.totalSales"]}</div>
-          <div class="value">${formatCurrency(summary.totalAmount)}</div>
+          <div class="value">${formatCurrency(summary.totalAmount, currency)}</div>
         </div>
         <div class="summary-card">
           <div class="label">${translations["sales.pdf.transactions"]}</div>

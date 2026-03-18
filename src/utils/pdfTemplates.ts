@@ -102,7 +102,8 @@ function getTypeLabel(type: string, t: LedgerPDFTranslations): string {
 export function generateLedgerPDFHtml(
   ledgers: Ledger[], 
   summary: LedgerSummary, 
-  t: LedgerPDFTranslations
+  t: LedgerPDFTranslations,
+  currency: string = 'BDT'
 ): string {
   const rows = ledgers.map(ledger => {
     const typeLabel = getTypeLabel(ledger.type, t);
@@ -243,15 +244,15 @@ export function generateLedgerPDFHtml(
         <div class="summary">
           <div class="summary-card lent">
             <h3>${t['ledger.pdf.totalLent']}</h3>
-            <div class="amount">${formatCurrency(summary.totalLent)}</div>
+            <div class="amount">${formatCurrency(summary.totalLent, currency)}</div>
           </div>
           <div class="summary-card borrowed">
             <h3>${t['ledger.pdf.totalBorrowed']}</h3>
-            <div class="amount">${formatCurrency(summary.totalBorrowed)}</div>
+            <div class="amount">${formatCurrency(summary.totalBorrowed, currency)}</div>
           </div>
           <div class="summary-card net">
             <h3>${t['ledger.pdf.netBalance']}</h3>
-            <div class="amount">${formatCurrency(summary.netBalance)}</div>
+            <div class="amount">${formatCurrency(summary.netBalance, currency)}</div>
           </div>
         </div>
 
@@ -271,8 +272,8 @@ export function generateLedgerPDFHtml(
             ${rows}
             <tr class="total-row">
               <td colspan="2"><strong>${t['ledger.pdf.total']}</strong></td>
-              <td><strong>${formatCurrency(summary.totalLent + summary.totalBorrowed)}</strong></td>
-              <td><strong>${formatCurrency(ledgers.reduce((sum, l) => sum + l.outstandingBalance, 0))}</strong></td>
+              <td><strong>${formatCurrency(summary.totalLent + summary.totalBorrowed, currency)}</strong></td>
+              <td><strong>${formatCurrency(ledgers.reduce((sum, l) => sum + l.outstandingBalance, 0), currency)}</strong></td>
               <td colspan="3"></td>
             </tr>
           </tbody>
@@ -307,7 +308,8 @@ function getPaymentMethodLabel(method: string, t: LedgerPDFTranslations): string
 export function generateLedgerDetailPDFHtml(
   ledger: Ledger,
   payments: Payment[],
-  t: LedgerPDFTranslations
+  t: LedgerPDFTranslations,
+  currency: string = 'BDT'
 ): string {
   // Sort by recordedAt to get the first transaction (stable ordering)
   const sortedPayments = [...payments].sort((a, b) => 

@@ -2,6 +2,7 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { getStaff, User } from '@/services/usersService';
 import { paySalary, CreateSalaryData } from '@/src/services/salaryService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,6 +14,7 @@ export default function PaySalaryScreen() {
     const router = useRouter();
     const { staffId } = useLocalSearchParams<{ staffId?: string }>();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
     
     const [staff, setStaff] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -134,7 +136,7 @@ export default function PaySalaryScreen() {
     };
 
     const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return formatMoney(amount);
     };
 
     const renderStaffItem = ({ item }: { item: User }) => (

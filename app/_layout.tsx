@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { LanguageProvider } from '@/src/contexts/LanguageContext';
+import { CurrencyProvider } from '@/src/contexts/CurrencyContext';
 import { SalesProvider } from '@/src/contexts/SalesContext';
 import { Colors } from '@/constants/theme';
 
@@ -142,12 +143,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <LanguageProvider>
-        <AuthProvider>
-          <SalesProvider>
-            <AuthNavigator />
-            <StatusBar style="auto" />
-          </SalesProvider>
-        </AuthProvider>
+        <CurrencyProvider>
+          <AuthProvider>
+            <SalesProvider>
+              <AuthNavigator />
+              <StatusBar style="auto" />
+            </SalesProvider>
+          </AuthProvider>
+        </CurrencyProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

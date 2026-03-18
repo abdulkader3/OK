@@ -1,5 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { useSales } from '@/src/contexts/SalesContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import { Sale } from '@/src/contexts/SalesContext';
 
 export default function SaleDetailsScreen() {
   const { t } = useLanguage();
+  const { formatMoney } = useCurrency();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getSale } = useSales();
@@ -24,7 +26,7 @@ export default function SaleDetailsScreen() {
   }, [id]);
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(amount);
   };
 
   const formatDate = (dateString: string) => {

@@ -12,6 +12,7 @@ import { getMonthlySummary, MonthlyBalanceData } from '@/src/services/monthlyBal
 import { useNetwork } from '@/src/hooks/useNetwork';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { useSales } from '@/src/contexts/SalesContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -23,6 +24,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { t } = useLanguage();
+  const { formatMoney } = useCurrency();
   const { isOffline } = useNetwork();
   const { getTodaySalesTotal, getSalesTotalForDays } = useSales();
   const [summary, setSummary] = useState<{
@@ -151,7 +153,7 @@ export default function DashboardScreen() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(amount);
   };
 
   const renderLedgerItem = (ledger: DashboardLedger, index: number) => {

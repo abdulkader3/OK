@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getAllBigBosses, BigBossListItem } from '@/src/services/bigBossService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -10,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function BigBossListScreen() {
     const router = useRouter();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
     
     const [bigBosses, setBigBosses] = useState<BigBossListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -78,7 +80,7 @@ export default function BigBossListScreen() {
     };
 
     const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return formatMoney(amount);
     };
 
     const getMonthName = (month: number) => {

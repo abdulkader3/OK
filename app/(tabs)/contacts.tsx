@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { Contact, contactsApi, ContactBalance } from '@/src/services/contacts';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -11,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function ContactsScreen() {
     const router = useRouter();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
     
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
@@ -75,10 +77,10 @@ export default function ContactsScreen() {
     };
 
     const formatBalance = (balance: ContactBalance | undefined) => {
-        if (!balance) return '$0.00';
+        if (!balance) return `${formatMoney(0)}`;
         const amount = balance.netBalance;
         const prefix = amount >= 0 ? '+' : '-';
-        return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+        return `${prefix}${formatMoney(Math.abs(amount))}`;
     };
 
     const getBalanceColor = (balance: ContactBalance | undefined) => {
@@ -260,6 +262,7 @@ type ContactWithDetails = Contact & { balance: ContactBalance; ledgers?: LedgerI
 function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; onClose: () => void }) {
     const router = useRouter();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
 
     const getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -268,7 +271,7 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
     const formatBalance = (balance: ContactBalance) => {
         const amount = balance.netBalance;
         const prefix = amount >= 0 ? '+' : '-';
-        return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+        return `${prefix}${formatMoney(Math.abs(amount))}`;
     };
 
     const handleCall = () => {
@@ -375,13 +378,13 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                             <View style={styles.balanceDetailItem}>
                                 <Text style={styles.balanceDetailLabel}>{t('contacts.owsMe')}</Text>
                                 <Text style={[styles.balanceDetailValue, { color: Colors.light.accentTeal }]}>
-                                    ${contact.balance.totalOwesMe.toFixed(2)}
+                                    {formatMoney(contact.balance.totalOwesMe)}
                                 </Text>
                             </View>
                             <View style={styles.balanceDetailItem}>
                                 <Text style={styles.balanceDetailLabel}>{t('contacts.iOwe')}</Text>
                                 <Text style={[styles.balanceDetailValue, { color: Colors.light.accentOrange }]}>
-                                    ${contact.balance.totalIOwe.toFixed(2)}
+                                    {formatMoney(contact.balance.totalIOwe)}
                                 </Text>
                             </View>
                         </View>
@@ -452,11 +455,11 @@ function ContactDetailView({ contact, onClose }: { contact: ContactWithDetails; 
                                         </Text>
                                     </View>
                                     <Text style={styles.ledgerAmount}>
-                                        ${ledger.outstandingBalance.toFixed(2)}
+                                        {formatMoney(ledger.outstandingBalance)}
                                     </Text>
                                 </View>
                                 <Text style={styles.ledgerInitialAmount}>
-                                    Initial: ${ledger.initialAmount.toFixed(2)}
+                                    Initial: {formatMoney(ledger.initialAmount)}
                                 </Text>
                             </TouchableOpacity>
                         ))}

@@ -2,6 +2,7 @@ import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/c
 import { addDebt, deleteLedger, getLedgerById, Ledger, updateLedger, UpdateLedgerData } from '@/services/ledgerService';
 import { getPaymentById, getPayments, Payment } from '@/services/paymentService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { generateLedgerDetailPDFHtml } from '@/src/utils/pdfTemplates';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -33,6 +34,7 @@ export default function LedgerDetailScreen() {
   const router = useRouter();
   const { canEditLedger, canDeleteLedger } = usePermissions();
   const { t } = useLanguage();
+  const { formatMoney, currency } = useCurrency();
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +117,7 @@ export default function LedgerDetailScreen() {
         'common.amount': t('common.amount'),
       };
       
-      const html = generateLedgerDetailPDFHtml(ledger, payments, translations);
+      const html = generateLedgerDetailPDFHtml(ledger, payments, translations, currency);
       const { uri } = await Print.printToFileAsync({ html });
       
       const destFile = new File(Paths.cache, `ledger-details-${Date.now()}.pdf`);
@@ -405,12 +407,12 @@ const handleDelete = () => {
 <View style={styles.amountRow}>
             <View style={styles.amountItem}>
               <Text style={styles.amountLabel}>{t('ledgerDetail.initial')}</Text>
-              <Text style={styles.amountValue}>${computedInitialAmount.toFixed(2)}</Text>
+              <Text style={styles.amountValue}>{formatMoney(computedInitialAmount)}</Text>
             </View>
             <View style={styles.amountItem}>
               <Text style={styles.amountLabel}>{t('ledgerDetail.outstanding')}</Text>
               <Text style={[styles.amountValue, styles.outstandingAmount]}>
-                ${ledger.outstandingBalance.toFixed(2)}
+                {formatMoney(ledger.outstandingBalance)}
               </Text>
             </View>
             <View style={styles.amountItem}>
@@ -505,7 +507,7 @@ const handleDelete = () => {
                       styles.paymentAmount,
                       payment.type === 'adjustment' && styles.paymentAmountPositive
                     ]}>
-                      {payment.type === 'adjustment' ? '+' : '-'}${payment.amount.toFixed(2)}
+                      {payment.type === 'adjustment' ? '+' : '-'}{formatMoney(payment.amount)}
                     </Text>
                     <View style={[
                       styles.paymentTypeBadge,
@@ -553,7 +555,7 @@ const handleDelete = () => {
 
                 <View style={styles.balanceInfo}>
                   <Text style={styles.balanceInfoText}>
-                    {t('ledgerDetail.outstandingStatus')} ${payment.previousOutstanding.toFixed(2)} → ${payment.newOutstanding.toFixed(2)}
+                    {t('ledgerDetail.outstandingStatus')} {formatMoney(payment.previousOutstanding)} → {formatMoney(payment.newOutstanding)}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -789,7 +791,7 @@ const handleDelete = () => {
                         styles.paymentDetailAmount,
                         selectedPayment.type === 'adjustment' && styles.paymentDetailAmountPositive
                       ]}>
-                        {selectedPayment.type === 'adjustment' ? '+' : '-'}${selectedPayment.amount.toFixed(2)}
+                        {selectedPayment.type === 'adjustment' ? '+' : '-'}{formatMoney(selectedPayment.amount)}
                       </Text>
                     </View>
 
@@ -846,11 +848,11 @@ const handleDelete = () => {
                       <Text style={styles.paymentDetailLabel}>Balance Change</Text>
                       <View style={styles.paymentDetailBalanceRow}>
                         <Text style={styles.paymentDetailBalanceLabel}>Previous:</Text>
-                        <Text style={styles.paymentDetailBalanceValue}>${selectedPayment.previousOutstanding.toFixed(2)}</Text>
+                        <Text style={styles.paymentDetailBalanceValue}>{formatMoney(selectedPayment.previousOutstanding)}</Text>
                       </View>
                       <View style={styles.paymentDetailBalanceRow}>
                         <Text style={styles.paymentDetailBalanceLabel}>New:</Text>
-                        <Text style={styles.paymentDetailBalanceValue}>${selectedPayment.newOutstanding.toFixed(2)}</Text>
+                        <Text style={styles.paymentDetailBalanceValue}>{formatMoney(selectedPayment.newOutstanding)}</Text>
                       </View>
                     </View>
 

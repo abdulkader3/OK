@@ -4,6 +4,7 @@ import { FilterPills } from '@/components/filter-pills';
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getLedgers, Ledger } from '@/services/ledgerService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { calculateSummary, generateLedgerPDFHtml } from '@/src/utils/pdfTemplates';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ type FilterType = 'All' | 'Lent' | 'Borrowed' | 'Overdue' | 'Settled';
 export default function LedgerScreen() {
     const router = useRouter();
     const { t } = useLanguage();
+    const { formatMoney, currency } = useCurrency();
     const [searchText, setSearchText] = useState('');
     const [ledgers, setLedgers] = useState<Ledger[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,7 +86,7 @@ export default function LedgerScreen() {
                 'common.type': t('common.type'),
                 'common.amount': t('common.amount'),
             };
-            const html = generateLedgerPDFHtml(allLedgers, summary, translations);
+            const html = generateLedgerPDFHtml(allLedgers, summary, translations, currency);
             
             const { uri } = await Print.printToFileAsync({ html });
             
@@ -156,7 +158,7 @@ export default function LedgerScreen() {
 
     const formatAmount = (amount: number, type: 'owes_me' | 'i_owe') => {
         const prefix = type === 'owes_me' ? '+' : '-';
-        return `${prefix}$${Math.abs(amount).toFixed(2)}`;
+        return `${prefix}${formatMoney(Math.abs(amount))}`;
     };
 
     const getLedgerType = (type: 'owes_me' | 'i_owe'): 'lent' | 'borrowed' => {

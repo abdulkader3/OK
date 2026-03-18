@@ -1,6 +1,7 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { getAllSalaryPayments, SalaryPaymentsResponse, SalaryPayment } from '@/src/services/salaryService';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -12,6 +13,7 @@ export default function AllSalaryPaymentsScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const { t } = useLanguage();
+    const { formatMoney } = useCurrency();
     
     const [paymentsResponse, setPaymentsResponse] = useState<SalaryPaymentsResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function AllSalaryPaymentsScreen() {
     }, [fetchPayments]);
 
     const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return formatMoney(amount);
     };
 
     const getMonthName = (month: number) => {
