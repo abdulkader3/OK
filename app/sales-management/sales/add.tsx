@@ -1,15 +1,19 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
 import { useCurrency } from '@/src/contexts/CurrencyContext';
-import { useSales, SaleItem as SaleItemType } from '@/src/contexts/SalesContext';
+import { useSales, SaleItem as SaleItemType, Sale } from '@/src/contexts/SalesContext';
 import { EmptyState, ProductCard, SaleItemRow, TotalSummaryBar } from '@/src/components/sales';
 import { getLedgers, Ledger } from '@/src/services/ledgerService';
+import { generateSingleSalePDFHtml, SingleSalePDFTranslations } from '@/src/utils/salesPdfTemplates';
 import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useState, useMemo, useEffect } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 
 interface CartItem extends SaleItemType {
   productId: string;
@@ -27,6 +31,9 @@ export default function AddSaleScreen() {
   const [serverLedgers, setServerLedgers] = useState<Ledger[]>([]);
   const [loadingLedgers, setLoadingLedgers] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   // Fetch ledgers from server when modal opens
   useEffect(() => {
@@ -116,23 +123,39 @@ export default function AddSaleScreen() {
       return;
     }
 
-    await addSale({
-      items: cart.map(({ productId, productName, productPrice, quantity, subtotal }) => ({
-        productId,
-        productName,
-        productPrice,
-        quantity,
-        subtotal,
-      })),
-      total,
-      ledgerId: selectedLedger?.id,
-      ledgerName: selectedLedger?.name,
-      paymentMethod: selectedLedger ? null : paymentMethod,
-    });
+    const receiptItems = cart.map((item) => ({
+      productId: item.productId,
+      productName: item.productName,
+      productPrice: Number(item.productPrice) || 0,
+      quantity: Number(item.quantity) || 0,
+      subtotal: Number(item.subtotal) || 0,
+    }));
 
-    Alert.alert(t('sales.success'), t('sales.saleSaved'), [
-      { text: 'OK', onPress: () => router.back() }
-    ]);
+    const receiptSnapshot: Sale = {
+      _id: `temp-${Date.now()}`,
+      items: receiptItems,
+      total: Number(total) || 0,
+      totalAmount: Number(total) || 0,
+      ledgerId: selectedLedger?.id ?? null,
+      ledgerName: selectedLedger?.name ?? null,
+      paymentMethod: selectedLedger ? null : paymentMethod,
+      createdAt: new Date().toISOString(),
+    } as Sale;
+
+    setReceiptSale(receiptSnapshot);
+    setShowReceiptModal(true);
+
+    try {
+      await addSale({
+        items: receiptItems,
+        total: Number(total) || 0,
+        ledgerId: selectedLedger?.id,
+        ledgerName: selectedLedger?.name,
+        paymentMethod: selectedLedger ? null : paymentMethod,
+      });
+    } catch (error) {
+      console.error('Save sale failed:', error);
+    }
   };
 
   const handleCancel = () => {
@@ -148,6 +171,71 @@ export default function AddSaleScreen() {
 
   const formatCurrency = (amount: number) => {
     return formatMoney(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const handlePrintPDF = async () => {
+    if (!receiptSale) return;
+
+    try {
+      setPrinting(true);
+
+      const translations: SingleSalePDFTranslations = {
+        "sales.receipt": t('sales.receipt') || 'Sales Receipt',
+        "sales.pdf.total": t('sales.total') || 'Total',
+        "sales.pdf.items": t('sales.items') || 'Items',
+        "sales.pdf.quantity": t('sales.quantity') || 'Qty',
+        "sales.pdf.price": t('sales.price') || 'Price',
+        "sales.pdf.subtotal": t('sales.subtotal') || 'Subtotal',
+        "sales.pdf.paymentMethod": t('sales.paymentMethod') || 'Payment Method',
+        "sales.pdf.cash": t('sales.cash') || 'Cash',
+        "sales.pdf.card": t('sales.card') || 'Card',
+        "sales.pdf.customer": t('sales.customer') || 'Customer',
+        "common.date": t('common.date') || 'Date',
+      };
+
+      const html = generateSingleSalePDFHtml(receiptSale, translations, 'BDT');
+      const { uri } = await Print.printToFileAsync({ html });
+
+      const newFileName = `receipt-${receiptSale._id || Date.now()}.pdf`;
+      const destFile = new File(Paths.cache, newFileName);
+      const sourceFile = new File(uri);
+      await sourceFile.copy(destFile);
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(destFile.uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: t('sales.printPdf') || 'Print Receipt',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert(t('sales.error') || 'Error', 'Sharing is not available on this device.');
+      }
+    } catch (err) {
+      console.error('Print error:', err);
+      Alert.alert(t('sales.error') || 'Error', 'Failed to generate PDF');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const handleCloseReceipt = () => {
+    setShowReceiptModal(false);
+    setReceiptSale(null);
+    setCart([]);
+    setSelectedLedger(null);
+    setPaymentMethod('cash');
   };
 
   return (
@@ -321,6 +409,110 @@ export default function AddSaleScreen() {
               {ledgers.length === 0 && (
                 <Text style={styles.noLedgers}>{t('sales.noPreviousCustomers')}</Text>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showReceiptModal}
+          animationType="slide"
+          transparent
+          onRequestClose={handleCloseReceipt}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.receiptModalContent}>
+              <ScrollView style={styles.receiptScroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.receiptCard}>
+                  <View style={styles.receiptHeader}>
+                    <MaterialIcons name="receipt-long" size={32} color={Colors.light.primary} />
+                    <Text style={styles.receiptTitle}>Sales Receipt</Text>
+                  </View>
+
+                  {receiptSale && (
+                    <>
+                      <Text style={styles.receiptDate}>{formatDate(receiptSale.createdAt || new Date().toISOString())}</Text>
+
+                      {receiptSale.ledgerName && (
+                        <View style={styles.customerSection}>
+                          <MaterialIcons name="person" size={18} color={Colors.light.primaryMuted} />
+                          <Text style={styles.customerLabel}>Customer:</Text>
+                          <Text style={styles.customerName}>{receiptSale.ledgerName}</Text>
+                        </View>
+                      )}
+
+                      {!receiptSale.ledgerId && receiptSale.paymentMethod && (
+                        <View style={styles.receiptPaymentMethodSection}>
+                          <MaterialIcons
+                            name={receiptSale.paymentMethod === 'cash' ? 'payments' : 'credit-card'}
+                            size={18}
+                            color={Colors.light.primaryMuted}
+                          />
+                          <Text style={styles.receiptPaymentMethodLabel}>Payment Method:</Text>
+                          <Text style={styles.receiptPaymentMethodValue}>
+                            {receiptSale.paymentMethod === 'cash' ? 'Cash' : 'Card'}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.itemsHeader}>
+                        <Text style={[styles.itemHeaderText, styles.itemNameCol]}>Item</Text>
+                        <Text style={styles.itemHeaderText}>Qty</Text>
+                        <Text style={styles.itemHeaderText}>Price</Text>
+                        <Text style={styles.itemHeaderText}>Total</Text>
+                      </View>
+
+                      {(receiptSale.items || []).map((item: { productName: string; quantity: number; productPrice: number; subtotal: number }, index: number) => (
+                        <View key={index} style={styles.itemRow}>
+                          <Text style={[styles.itemName, styles.itemNameCol]} numberOfLines={2}>
+                            {item.productName}
+                          </Text>
+                          <Text style={styles.itemQty}>{item.quantity}</Text>
+                          <Text style={styles.itemPrice}>{formatCurrency(item.productPrice)}</Text>
+                          <Text style={styles.itemTotal}>{formatCurrency(item.subtotal)}</Text>
+                        </View>
+                      ))}
+
+                      <View style={styles.divider} />
+
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Total</Text>
+                        <Text style={styles.totalAmount}>
+                          {formatCurrency(receiptSale.totalAmount || receiptSale.total || 0)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </ScrollView>
+
+              <View style={styles.receiptButtons}>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={handleCloseReceipt}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons name="close" size={20} color={Colors.light.text} />
+                  <Text style={styles.closeButtonText}>{t('sales.close') || 'Close'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.printButton, printing && styles.printButtonDisabled]}
+                  onPress={handlePrintPDF}
+                  disabled={printing}
+                  activeOpacity={0.7}
+                >
+                  {printing ? (
+                    <ActivityIndicator size="small" color={Colors.light.surface} />
+                  ) : (
+                    <>
+                      <MaterialIcons name="picture-as-pdf" size={20} color={Colors.light.surface} />
+                      <Text style={styles.printButtonText}>{t('sales.printPdf') || 'Print PDF'}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -529,5 +721,186 @@ const styles = StyleSheet.create({
   },
   paymentOptionTextActive: {
     color: Colors.light.primary,
+  },
+  receiptModalContent: {
+    backgroundColor: Colors.light.surface,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    maxHeight: '85%',
+    flex: 1,
+  },
+  receiptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  receiptTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  receiptCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  receiptScroll: {
+    flex: 1,
+  },
+  receiptDate: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  customerSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.light.backgroundAlt,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  customerLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
+  },
+  customerName: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.text,
+  },
+  receiptPaymentMethodSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.light.backgroundAlt,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  receiptPaymentMethodLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
+  },
+  receiptPaymentMethodValue: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.text,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.light.border,
+    marginVertical: Spacing.md,
+  },
+  itemsHeader: {
+    flexDirection: 'row',
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  itemHeaderText: {
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+  },
+  itemNameCol: {
+    flex: 2,
+    textAlign: 'left',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+  },
+  itemName: {
+    flex: 2,
+    fontSize: FontSize.sm,
+    color: Colors.light.text,
+  },
+  itemQty: {
+    width: 40,
+    textAlign: 'center',
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
+  },
+  itemPrice: {
+    width: 70,
+    textAlign: 'right',
+    fontSize: FontSize.sm,
+    color: Colors.light.textSecondary,
+  },
+  itemTotal: {
+    width: 70,
+    textAlign: 'right',
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.text,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: Spacing.sm,
+  },
+  totalLabel: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.text,
+  },
+  totalAmount: {
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+    color: Colors.light.primary,
+  },
+  receiptButtons: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  closeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.light.backgroundAlt,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  closeButtonText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.text,
+  },
+  printButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.light.primary,
+  },
+  printButtonDisabled: {
+    opacity: 0.7,
+  },
+  printButtonText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.surface,
   },
 });
