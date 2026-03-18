@@ -21,7 +21,7 @@ interface CartItem extends SaleItemType {
 
 export default function AddSaleScreen() {
   const { t } = useLanguage();
-  const { formatMoney } = useCurrency();
+  const { formatMoney, currencySymbol } = useCurrency();
   const router = useRouter();
   const { products, addSale, sales } = useSales();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -205,7 +205,7 @@ export default function AddSaleScreen() {
         "common.date": t('common.date') || 'Date',
       };
 
-      const html = generateSingleSalePDFHtml(receiptSale, translations, 'BDT');
+      const html = generateSingleSalePDFHtml(receiptSale, translations, currencySymbol);
       const { uri } = await Print.printToFileAsync({ html });
 
       const newFileName = `receipt-${receiptSale._id || Date.now()}.pdf`;

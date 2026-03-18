@@ -36,11 +36,11 @@ export interface SalesSummaryData {
   unpaidAmount: number;
 }
 
-function formatCurrency(amount: number, currency: string = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(amount);
+function formatCurrency(amount: number, symbol: string = "৳"): string {
+  return `${symbol}${amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function formatDate(dateString?: string): string {
@@ -55,9 +55,10 @@ function formatDate(dateString?: string): string {
 function formatDateTime(dateString?: string): string {
   if (!dateString) return "-";
   return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -233,16 +234,16 @@ export interface SingleSalePDFTranslations {
 export function generateSingleSalePDFHtml(
   sale: Sale,
   translations: SingleSalePDFTranslations,
-  currency: string = "BDT"
+  symbol: string = "৳"
 ): string {
   const itemsRows = sale.items
     .map(
       (item) => `
       <tr>
-        <td style="padding:8px 4px;border-bottom:1px solid #e5e7eb;text-align:left;">${item.productName || item.name || "Item"}</td>
-        <td style="padding:8px 4px;border-bottom:1px solid #e5e7eb;text-align:center;width:50px;">${item.quantity}</td>
-        <td style="padding:8px 4px;border-bottom:1px solid #e5e7eb;text-align:right;width:80px;">${formatCurrency(item.productPrice || item.price || 0, currency)}</td>
-        <td style="padding:8px 4px;border-bottom:1px solid #e5e7eb;text-align:right;width:90px;">${formatCurrency(item.subtotal, currency)}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:16px;color:#1f2937;">${item.productName || item.name || "Item"}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:center;width:50px;font-size:16px;color:#6b7280;">${item.quantity}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right;width:90px;font-size:16px;color:#6b7280;">${formatCurrency(item.productPrice || item.price || 0, symbol)}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right;width:90px;font-size:16px;font-weight:500;color:#1f2937;">${formatCurrency(item.subtotal, symbol)}</td>
       </tr>
     `
     )
@@ -261,76 +262,92 @@ export function generateSingleSalePDFHtml(
     <head>
       <meta charset="utf-8">
       <title>${translations["sales.receipt"]}</title>
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; color: #1f2937; }
-        .header { text-align: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid #3b82f6; }
-        .header h1 { color: #1e40af; font-size: 22px; margin-bottom: 4px; }
-        .header .date { color: #6b7280; font-size: 13px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1f2937; }
         
-        .customer-section { background: #f3f4f6; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; text-align: center; }
-        .customer-label { font-size: 12px; color: #6b7280; }
-        .customer-name { font-size: 16px; font-weight: 600; color: #1f2937; margin-top: 2px; }
+        .card {
+          background: #ffffff;
+          border-radius: 16px;
+          padding: 40px;
+          border: 1px solid #e5e7eb;
+          max-width: 600px;
+          margin: 0 auto;
+        }
         
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
-        th { background: #f9fafb; padding: 10px 4px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; font-size: 12px; }
+        .header { text-align: center; margin-bottom: 24px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .header .icon { font-size: 36px; color: #000000; }
+        .header h1 { font-size: 28px; font-weight: 700; color: #1f2937; margin: 0; }
+        .date { font-size: 18px; color: #6b7280; text-align: center; margin-bottom: 16px; }
+        
+        .customer-section { background: #f9fafb; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .customer-label { font-size: 18px; color: #6b7280; }
+        .customer-name { font-size: 18px; font-weight: 600; color: #1f2937; }
+        
+        .payment-section { background: #f9fafb; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .payment-label { font-size: 18px; color: #6b7280; }
+        .payment-value { font-size: 18px; font-weight: 600; color: #1f2937; }
+        
+        .divider { height: 1px; background: #e5e7eb; margin: 16px 0; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        th { padding: 14px 8px; font-weight: 600; color: #6b7280; font-size: 16px; border-bottom: 1px solid #e5e7eb; }
         th:nth-child(1) { text-align: left; }
         th:nth-child(2) { text-align: center; }
         th:nth-child(3) { text-align: right; }
         th:nth-child(4) { text-align: right; }
         
-        .total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 2px solid #3b82f6; margin-top: 8px; }
-        .total-label { font-size: 18px; font-weight: 600; color: #1f2937; }
-        .total-amount { font-size: 24px; font-weight: 700; color: #2563eb; }
-        
-        .payment-row { display: flex; justify-content: center; gap: 8px; align-items: center; margin-top: 12px; }
-        .payment-label { font-size: 13px; color: #6b7280; }
-        .payment-value { font-size: 13px; font-weight: 500; color: #1f2937; }
-        
-        .footer { text-align: center; margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 11px; }
+        .total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; }
+        .total-label { font-size: 26px; font-weight: 700; color: #1f2937; }
+        .total-amount { font-size: 42px; font-weight: 700; color: #1f2937; }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>${translations["sales.receipt"]}</h1>
+      <div class="card">
+        <div class="header">
+          <span class="icon material-icons">receipt_long</span>
+          <h1>Sales Received</h1>
+        </div>
+        
         <div class="date">${formatDateTime(sale.createdAt)}</div>
-      </div>
-      
-      ${sale.ledgerName ? `
-        <div class="customer-section">
-          <div class="customer-label">${translations["sales.pdf.customer"]}</div>
-          <div class="customer-name">${sale.ledgerName}</div>
+        
+        ${sale.ledgerName ? `
+          <div class="customer-section">
+            <span class="customer-label">${translations["sales.pdf.customer"]}:</span>
+            <span class="customer-name">${sale.ledgerName}</span>
+          </div>
+        ` : ""}
+        
+        ${paymentMethodLabel ? `
+          <div class="payment-section">
+            <span class="payment-label">${translations["sales.pdf.paymentMethod"]}:</span>
+            <span class="payment-value">${paymentMethodLabel}</span>
+          </div>
+        ` : ""}
+        
+        <div class="divider"></div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>${translations["sales.pdf.items"]}</th>
+              <th>${translations["sales.pdf.quantity"]}</th>
+              <th style="text-align:right">${translations["sales.pdf.price"]}</th>
+              <th style="text-align:right">${translations["sales.pdf.subtotal"]}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows}
+          </tbody>
+        </table>
+        
+        <div class="divider"></div>
+        
+        <div class="total-row">
+          <span class="total-label">${translations["sales.pdf.total"]}</span>
+          <span class="total-amount">${formatCurrency(sale.totalAmount || sale.total || 0, symbol)}</span>
         </div>
-      ` : ""}
-      
-      <table>
-        <thead>
-          <tr>
-            <th>${translations["sales.pdf.items"]}</th>
-            <th>${translations["sales.pdf.quantity"]}</th>
-            <th style="text-align:right">${translations["sales.pdf.price"]}</th>
-            <th style="text-align:right">${translations["sales.pdf.subtotal"]}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsRows}
-        </tbody>
-      </table>
-      
-      <div class="total-row">
-        <span class="total-label">${translations["sales.pdf.total"]}</span>
-        <span class="total-amount">${formatCurrency(sale.totalAmount || sale.total || 0, currency)}</span>
-      </div>
-      
-      ${paymentMethodLabel ? `
-        <div class="payment-row">
-          <span class="payment-label">${translations["sales.pdf.paymentMethod"]}:</span>
-          <span class="payment-value">${paymentMethodLabel}</span>
-        </div>
-      ` : ""}
-      
-      <div class="footer">
-        ${translations["sales.receipt"]} - ${new Date().toLocaleString()}
       </div>
     </body>
     </html>
