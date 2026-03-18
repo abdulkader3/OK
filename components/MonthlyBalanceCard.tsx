@@ -1,5 +1,6 @@
 import { BorderRadius, Colors, FontSize, FontWeight, Shadow, Spacing } from '@/constants/theme';
 import { useLanguage } from '@/src/contexts/LanguageContext';
+import { useCurrency } from '@/src/contexts/CurrencyContext';
 import { MonthlyBalanceData } from '@/src/services/monthlyBalanceService';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
@@ -25,15 +26,11 @@ export function MonthlyBalanceCard({
   onViewHistory,
 }: MonthlyBalanceCardProps) {
   const { t, language } = useLanguage();
+  const { formatMoney } = useCurrency();
   
   const monthNames = language === 'bn' ? MONTH_NAMES_BN : MONTH_NAMES_EN;
   const monthName = data ? monthNames[data.month - 1] || '' : '';
   
-  const formatCurrency = (amount: string) => {
-    const num = parseFloat(amount);
-    return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   const balance = data ? parseFloat(data.balanceTotal) : 0;
   const isPositive = balance >= 0;
 
@@ -59,7 +56,7 @@ export function MonthlyBalanceCard({
           styles.balanceAmount,
           { color: isPositive ? Colors.light.accentTeal : Colors.light.error }
         ]}>
-          {formatCurrency(data.balanceTotal)}
+          {formatMoney(parseFloat(data.balanceTotal))}
         </Text>
       </View>
 
@@ -68,14 +65,14 @@ export function MonthlyBalanceCard({
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>{t('dashboard.owedToMe')}</Text>
             <Text style={[styles.detailAmount, { color: Colors.light.accentTeal }]}>
-              +{formatCurrency(data.ledgerOwedTotal)}
+              +{formatMoney(parseFloat(data.ledgerOwedTotal))}
             </Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>{t('dashboard.bigBossPaid')}</Text>
             <Text style={[styles.detailAmount, { color: Colors.light.error }]}>
-              -{formatCurrency(data.bigBossPaid)}
+              -{formatMoney(parseFloat(data.bigBossPaid))}
             </Text>
           </View>
         </View>
@@ -83,7 +80,7 @@ export function MonthlyBalanceCard({
         <View style={styles.salesRow}>
           <MaterialIcons name="point-of-sale" size={16} color={Colors.light.accentOrange} />
           <Text style={styles.salesLabel}>{t('sales.todaySales')}: </Text>
-          <Text style={styles.salesAmount}>{formatCurrency(data.salesTotal)}</Text>
+          <Text style={styles.salesAmount}>{formatMoney(parseFloat(data.salesTotal))}</Text>
         </View>
       </View>
 
