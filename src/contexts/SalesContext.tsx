@@ -12,7 +12,8 @@ import {
   getLastSyncTime,
   retryFailed,
   getSyncQueue,
-  getIdMapping 
+  getIdMapping,
+  clearAll as clearSalesData 
 } from '@/src/services/salesSyncService';
 import apiClient from '@/src/services/apiClient';
 
@@ -46,11 +47,12 @@ export interface Sale {
   clientTempId?: string;
   items: SaleItem[];
   total: number;
-  totalAmount?: number;  // Server returns totalAmount
+  totalAmount?: number;
   ledgerId?: string;
   ledgerName?: string;
   ledgerDebtId?: string;
   ledgerTxnId?: string;
+  paymentMethod?: 'cash' | 'card' | null;
   syncStatus: SyncStatus;
   idempotencyKey?: string;
   recordedAtClient?: string;
@@ -74,7 +76,9 @@ interface SalesContextType {
   lastSyncTime: string | null;
   syncAll: () => Promise<void>;
   retryFailed: () => Promise<void>;
-  fetchFromServer: (currentProducts?: Product[], currentSales?: Sale[]) => Promise<void>;
+  fetchFromServer: (since?: string | null) => Promise<void>;
+  clearAll: () => Promise<void>;
+  reloadFromStorage: () => Promise<void>;
   getTodaySalesTotal: () => number;
   getSalesTotalForDays: (days: number) => number;
 }
@@ -85,6 +89,9 @@ const STORAGE_KEYS = {
 };
 
 const SalesContext = createContext<SalesContextType | undefined>(undefined);
+
+let _reloadFromStorageFn: (() => Promise<void>) | null = null;
+export const triggerReloadFromStorage = () => _reloadFromStorageFn?.();
 
 export function SalesProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -329,6 +336,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         items: syncItems,
         ledgerId: newSale.ledgerId,
         ledgerName: newSale.ledgerName,
+        paymentMethod: newSale.paymentMethod,
         recordedAtClient: now,
       },
       status: 'pending',
@@ -356,21 +364,24 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     
     setIsSyncing(true);
     try {
-      // Step 1: Sync pending items
+      // Step 1: Get timestamp BEFORE any network calls
+      const lastSyncTime = await getLastSyncTime();
+      
+      // Step 2: Fetch from server FIRST (using old timestamp to get all changes)
+      await fetchFromServer(lastSyncTime);
+      
+      // Step 3: Sync pending items to server
       const syncResult = await syncSalesBatch();
       await updatePendingCount();
       
-      // Step 2: Apply server-assigned IDs to local records (persist first)
-      // Use current products/sales from state (not stale closure)
+      // Step 4: Apply server-assigned IDs to local pending items
       let updatedProducts = [...products];
       let updatedSales = [...sales];
       
       if (syncResult.success && syncResult.results.length > 0) {
-        
         for (const result of syncResult.results) {
           if (result.success && result.serverAssignedId) {
             if (result.type === 'product') {
-              // Find by clientTempId or _id (temp UUID)
               const idx = updatedProducts.findIndex(
                 p => p.clientTempId === result.clientTempId || p._id === result.clientTempId
               );
@@ -394,7 +405,6 @@ export function SalesProvider({ children }: { children: ReactNode }) {
                   serverId: result.serverAssignedId,
                   syncStatus: 'synced',
                   clientTempId: result.clientTempId,
-                  // Handle ledgerDebtId for credit sales (server returns ledgerDebtId)
                   ...(result.ledgerDebtId && { 
                     ledgerDebtId: result.ledgerDebtId,
                     ledgerId: result.ledgerDebtId 
@@ -405,7 +415,7 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        // Persist updated local records before fetchFromServer
+        // Persist updated local records
         setProducts(updatedProducts);
         await saveProducts(updatedProducts);
         setSales(updatedSales);
@@ -414,9 +424,6 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       
       const syncTime = await getLastSyncTime();
       setLastSyncTime(syncTime);
-      
-      // Step 3: Fetch from server and merge (pass updated data to avoid stale closure)
-      await fetchFromServer(updatedProducts, updatedSales);
     } catch (error) {
       console.error('Sync failed:', error);
     } finally {
@@ -431,17 +438,12 @@ export function SalesProvider({ children }: { children: ReactNode }) {
     await syncAll();
   }, [syncAll]);
 
-  const fetchFromServer = useCallback(async (currentProducts?: Product[], currentSales?: Sale[]) => {
-    // Use passed parameters if available, otherwise use closure values
-    const localProducts = currentProducts ?? products;
-    const localSales = currentSales ?? sales;
+  const fetchFromServer = useCallback(async (since?: string | null) => {
     try {
-      // Get last sync timestamp for incremental sync
-      const lastSync = await getLastSyncTime();
-      const sinceParam = lastSync ? `&since=${encodeURIComponent(lastSync)}` : '';
+      const sinceParam = since ? `&since=${encodeURIComponent(since)}` : '';
       
       // Fetch products
-      const productsResponse = await apiClient.get<{ products: Product[] }>(`/api/products?page=1&limit=100${sinceParam}`);
+      const productsResponse = await apiClient.get<{ products: Product[] }>(`/api/products?page=1&limit=1000${sinceParam}`);
       if (productsResponse.success && productsResponse.data?.products) {
         const serverProducts = productsResponse.data.products.map(p => ({
           ...p,
@@ -453,20 +455,17 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         // Only keep local items that are NOT synced (pending/failed) 
         // AND are NOT already on server (check by clientTempId mapping)
         const idMapping = await getIdMapping();
-        const localPending = localProducts.filter(p => {
-          if (p.syncStatus === 'synced') return false; // Already synced, don't include
-          
-          // Check if this item was synced (has server ID in mapping)
+        const localPending = products.filter(p => {
+          if (p.syncStatus === 'synced') return false;
           const wasSynced = p.clientTempId && p.clientTempId in idMapping;
           return !wasSynced;
         });
         
         // Merge: local pending + unique server items
-        // But we also need to include locally synced products (they're already in the products array)
         const serverProductIds = new Set(serverProducts.map(p => p._id));
         
         // Keep local synced products that don't exist on server
-        const localSyncedProducts = localProducts.filter(p => 
+        const localSyncedProducts = products.filter(p => 
           p.syncStatus === 'synced' && !serverProductIds.has(p._id)
         );
         
@@ -477,12 +476,11 @@ export function SalesProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch sales
-      const salesResponse = await apiClient.get<any>(`/api/sales?page=1&limit=100${sinceParam}`);
+      const salesResponse = await apiClient.get<any>(`/api/sales?page=1&limit=1000${sinceParam}`);
       if (salesResponse.success && salesResponse.data?.sales) {
-        // Map server sales to local format (handle field name differences)
         const serverSales = (salesResponse.data.sales as any[]).map((s: any) => ({
           ...s,
-          total: s.totalAmount,  // Server returns totalAmount, local expects total
+          total: s.totalAmount,
           items: s.items?.map((item: any) => ({
             productId: item.clientProductId || item.productId,
             productName: item.name,
@@ -495,20 +493,16 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           syncStatus: 'synced' as SyncStatus,
         }));
         
-        // Create a set of server IDs to check for duplicates
         const serverSaleIds = new Set(serverSales.map(s => s._id));
         
-        // Only keep local pending items that weren't synced
         const idMapping = await getIdMapping();
-        const localPending = localSales.filter(s => {
+        const localPending = sales.filter(s => {
           if (s.syncStatus === 'synced') return false;
-          
           const wasSynced = s.clientTempId && s.clientTempId in idMapping;
           return !wasSynced;
         });
         
-        // Keep local synced sales that don't exist on server
-        const localSyncedSales = localSales.filter(s => 
+        const localSyncedSales = sales.filter(s => 
           s.syncStatus === 'synced' && !serverSaleIds.has(s._id)
         );
         
@@ -553,8 +547,32 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           .reduce((sum, s) => sum + (s.totalAmount || s.total || 0), 0);
       }, [sales]);
 
+      const clearAll = async () => {
+        await clearSalesData();
+        await AsyncStorage.removeItem(STORAGE_KEYS.PRODUCTS);
+        await AsyncStorage.removeItem(STORAGE_KEYS.SALES);
+        setProducts([]);
+        setSales([]);
+        setLastSyncTime(null);
+      };
+
+      const reloadFromStorage = async () => {
+        const productsData = await AsyncStorage.getItem(STORAGE_KEYS.PRODUCTS);
+        const salesData = await AsyncStorage.getItem(STORAGE_KEYS.SALES);
+        
+        if (productsData) {
+          setProducts(JSON.parse(productsData));
+        }
+        if (salesData) {
+          setSales(JSON.parse(salesData));
+        }
+        _reloadFromStorageFn = reloadFromStorage;
+      };
+
+      _reloadFromStorageFn = reloadFromStorage;
+
       return (
-        <SalesContext.Provider value={{
+        <SalesContext.Provider         value={{
           products,
           sales,
           addProduct,
@@ -571,6 +589,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
           syncAll,
           retryFailed: handleRetryFailed,
           fetchFromServer,
+          clearAll,
+          reloadFromStorage,
           getTodaySalesTotal,
           getSalesTotalForDays,
         }}>

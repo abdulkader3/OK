@@ -24,6 +24,7 @@ export default function AddSaleScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [serverLedgers, setServerLedgers] = useState<Ledger[]>([]);
   const [loadingLedgers, setLoadingLedgers] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
 
   // Fetch ledgers from server when modal opens
   useEffect(() => {
@@ -124,6 +125,7 @@ export default function AddSaleScreen() {
       total,
       ledgerId: selectedLedger?.id,
       ledgerName: selectedLedger?.name,
+      paymentMethod: selectedLedger ? null : paymentMethod,
     });
 
     Alert.alert(t('sales.success'), t('sales.saleSaved'), [
@@ -233,6 +235,43 @@ export default function AddSaleScreen() {
                 />
               ))}
             </ScrollView>
+            
+            {!selectedLedger && (
+              <View style={styles.paymentMethodSection}>
+                <Text style={styles.paymentMethodLabel}>{t('sales.paymentMethod')}</Text>
+                <View style={styles.paymentMethodOptions}>
+                  <TouchableOpacity
+                    style={[styles.paymentOption, paymentMethod === 'cash' && styles.paymentOptionActive]}
+                    onPress={() => setPaymentMethod('cash')}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons 
+                      name="payments" 
+                      size={20} 
+                      color={paymentMethod === 'cash' ? Colors.light.primary : Colors.light.textMuted} 
+                    />
+                    <Text style={[styles.paymentOptionText, paymentMethod === 'cash' && styles.paymentOptionTextActive]}>
+                      {t('sales.cash')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.paymentOption, paymentMethod === 'card' && styles.paymentOptionActive]}
+                    onPress={() => setPaymentMethod('card')}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons 
+                      name="credit-card" 
+                      size={20} 
+                      color={paymentMethod === 'card' ? Colors.light.primary : Colors.light.textMuted} 
+                    />
+                    <Text style={[styles.paymentOptionText, paymentMethod === 'card' && styles.paymentOptionTextActive]}>
+                      {t('sales.card')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            
             <TotalSummaryBar
               total={total}
               buttonText={t('sales.saveSale')}
@@ -450,5 +489,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: Colors.light.textMuted,
     padding: Spacing.xl,
+  },
+  paymentMethodSection: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  paymentMethodLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  paymentMethodOptions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  paymentOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.light.backgroundAlt,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  paymentOptionActive: {
+    backgroundColor: Colors.light.primary + '12',
+    borderColor: Colors.light.primary,
+  },
+  paymentOptionText: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.medium,
+    color: Colors.light.textMuted,
+  },
+  paymentOptionTextActive: {
+    color: Colors.light.primary,
   },
 });

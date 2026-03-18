@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../services/apiClient';
+import { forceInitialSync } from '../services/salesSyncService';
+import { triggerReloadFromStorage } from './SalesContext';
+
+const STORAGE_KEYS = {
+  PRODUCTS: '@sales_products',
+  SALES: '@sales_sales',
+};
 
 const TOKEN_KEY = 'access_token';
 const USER_KEY = 'user_data';
@@ -72,6 +80,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       await SecureStore.setItemAsync(USER_KEY, JSON.stringify(response.data.user));
       setUser(response.data.user);
+      
+      // Fetch fresh data from server
+      try {
+        const { products, sales } = await forceInitialSync();
+        
+        // Map server products to local format
+        const localProducts = products.map(p => ({
+          ...p,
+          _id: p._id,
+          serverId: p._id,
+          syncStatus: 'synced' as const,
+        }));
+        
+        // Map server sales to local format
+        const localSales = sales.map((s: any) => ({
+          ...s,
+          total: s.totalAmount,
+          items: s.items?.map((item: any) => ({
+            productId: item.clientProductId || item.productId,
+            productName: item.name,
+            productPrice: item.price,
+            quantity: item.quantity,
+            subtotal: item.subtotal,
+          })),
+          _id: s._id,
+          serverId: s._id,
+          syncStatus: 'synced' as const,
+        }));
+        
+        // Store in AsyncStorage for SalesContext to pick up
+        await AsyncStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(localProducts));
+        await AsyncStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(localSales));
+        
+        // Reload SalesContext state from AsyncStorage
+        await triggerReloadFromStorage();
+      } catch (error) {
+        console.warn('Failed to fetch initial data:', error);
+      }
     } else {
       throw new Error(response.message || 'Login failed');
     }
@@ -87,6 +133,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.deleteItemAsync(USER_KEY);
       apiClient.clearAuthToken();
       setUser(null);
+      
+      // Clear all local sales/product data
+      await AsyncStorage.multiRemove([
+        '@sales_products',
+        '@sales_sales',
+        '@sales_sync_queue',
+        '@sales_pending_uploads',
+        '@sales_id_mapping',
+        '@sales_last_sync',
+      ]);
     }
   };
 

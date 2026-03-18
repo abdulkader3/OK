@@ -226,6 +226,7 @@ export async function syncSalesBatch(): Promise<SyncResult> {
           items: item.data.items,
           ledgerId: item.data.ledgerId,
           ledgerCounterpartyName: item.data.ledgerName,
+          paymentMethod: item.data.paymentMethod,
           recordedAtClient: item.data.recordedAtClient,
         };
       }
@@ -325,4 +326,23 @@ export async function clearAll(): Promise<void> {
     ID_MAPPING_KEY,
     LAST_SYNC_KEY,
   ]);
+}
+
+export async function forceInitialSync(): Promise<{ products: any[]; sales: any[] }> {
+  // Use epoch timestamp to get ALL data from server
+  const epoch = '1970-01-01T00:00:00.000Z';
+  
+  const [productsResponse, salesResponse] = await Promise.all([
+    apiClient.get<{ products: any[] }>(`/api/products?page=1&limit=1000&since=${encodeURIComponent(epoch)}`),
+    apiClient.get<{ sales: any[] }>(`/api/sales?page=1&limit=1000&since=${encodeURIComponent(epoch)}`),
+  ]);
+  
+  const products = productsResponse.success ? (productsResponse.data?.products || []) : [];
+  const sales = salesResponse.success ? (salesResponse.data?.sales || []) : [];
+  
+  // Clear sync queues (we're doing a fresh fetch, pending items would be stale)
+  await clearAll();
+  await updateLastSync();
+  
+  return { products, sales };
 }

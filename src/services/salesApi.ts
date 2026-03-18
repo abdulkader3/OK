@@ -35,6 +35,7 @@ export interface Sale {
   ledgerName?: string;
   ledgerDebtId?: string;
   paymentStatus?: 'paid' | 'not_paid';
+  paymentMethod?: 'cash' | 'card' | null;
   syncStatus: SyncStatus;
   idempotencyKey?: string;
   recordedAtClient?: string;
@@ -55,6 +56,7 @@ export interface CreateSaleRequest {
   items: SaleItem[];
   ledgerId?: string;
   ledgerCounterpartyName?: string;
+  paymentMethod?: 'cash' | 'card' | null;
   clientTempId: string;
   idempotencyKey: string;
   recordedAtClient?: string;
@@ -71,6 +73,7 @@ export interface SyncOperation {
   totalAmount?: number;
   items?: SaleItem[];
   ledgerId?: string;
+  paymentMethod?: 'cash' | 'card' | null;
   recordedAtClient?: string;
 }
 

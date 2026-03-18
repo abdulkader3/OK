@@ -439,6 +439,9 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'sales.pdf.allTime': 'All Time',
     'sales.paid': 'Paid',
     'sales.notPaid': 'Not Paid',
+    'sales.paymentMethod': 'Payment Method',
+    'sales.cash': 'Cash',
+    'sales.card': 'Card',
   },
   bn: {
     // Common
@@ -794,6 +797,9 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'sales.pdf.allTime': 'সব সময়',
     'sales.paid': 'পরিশোধিত',
     'sales.notPaid': 'বকেয়া',
+    'sales.paymentMethod': 'পেমেন্ট পদ্ধতি',
+    'sales.cash': 'নগদ',
+    'sales.card': 'কার্ড',
   },
 };
 
