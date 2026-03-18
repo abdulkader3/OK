@@ -180,6 +180,9 @@ export interface AddDebtResponse {
 
 export async function addDebt(id: string, data: AddDebtData): Promise<AddDebtResponse> {
   const response = await apiClient.post<AddDebtResponse>(`/api/ledgers/${id}/add-debt`, data);
+  console.log('[addDebt] Full response:', JSON.stringify(response));
+  console.log('[addDebt] response.success:', response.success);
+  console.log('[addDebt] response.data:', response.data);
   if (response.success && response.data) {
     return response.data;
   }
