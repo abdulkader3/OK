@@ -72,7 +72,7 @@ function getDateLabel(dateString: string | null, t: (key: string) => string): st
 export default function SalesHistoryScreen() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { deleteSale } = useSales();
+  const { deleteSale, syncAll, isSyncing } = useSales();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -120,6 +120,18 @@ export default function SalesHistoryScreen() {
     setRefreshing(true);
     fetchSales();
   }, [fetchSales]);
+
+  const handleManualRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await syncAll();
+      await fetchSales();
+    } catch (error) {
+      console.error('Failed to refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [syncAll, fetchSales]);
 
   const handleQuickFilter = (filter: QuickFilter) => {
     setQuickFilter(filter);
@@ -346,6 +358,18 @@ export default function SalesHistoryScreen() {
           </TouchableOpacity>
           <Text style={styles.title}>{t('sales.salesHistory')}</Text>
           <View style={styles.headerActions}>
+            <TouchableOpacity 
+              onPress={handleManualRefresh}
+              style={styles.headerBtn}
+              disabled={refreshing || isSyncing}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons 
+                name="refresh" 
+                size={24} 
+                color={refreshing || isSyncing ? Colors.light.textMuted : Colors.light.accentTeal} 
+              />
+            </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => setShowFilter(true)}
               style={styles.headerBtn}

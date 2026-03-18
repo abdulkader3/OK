@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '../services/apiClient';
 import { forceInitialSync } from '../services/salesSyncService';
-import { triggerReloadFromStorage } from './SalesContext';
+import { triggerReloadFromStorage, clearAllFromStorage } from './SalesContext';
 
 const STORAGE_KEYS = {
   PRODUCTS: '@sales_products',
@@ -134,15 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiClient.clearAuthToken();
       setUser(null);
       
-      // Clear all local sales/product data
-      await AsyncStorage.multiRemove([
-        '@sales_products',
-        '@sales_sales',
-        '@sales_sync_queue',
-        '@sales_pending_uploads',
-        '@sales_id_mapping',
-        '@sales_last_sync',
-      ]);
+      // Clear all local sales/product data (state + AsyncStorage)
+      clearAllFromStorage();
     }
   };
 

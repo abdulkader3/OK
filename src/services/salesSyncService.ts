@@ -24,13 +24,13 @@ export interface SyncQueueItem {
   id: string;
   type: 'product' | 'sale';
   clientTempId: string;
+  serverId?: string;
   idempotencyKey: string;
   data: any;
   status: 'pending' | 'syncing' | 'synced' | 'failed';
   createdAt: string;
   retryCount: number;
   lastError?: string;
-  serverId?: string;
   ledgerTxnId?: string;
 }
 
@@ -207,19 +207,22 @@ export async function syncSalesBatch(): Promise<SyncResult> {
     .slice(0, 100)
     .map(item => {
       if (item.type === 'product') {
-        // Use uploaded URL if available, otherwise use any pre-set imageUrl
         const imageUrl = uploadUrls.get(item.clientTempId) || item.data.imageUrl || null;
+        const isUpdate = !!item.serverId;
+        
         return {
-          type: 'product',
+          type: 'product' as const,
+          operation: isUpdate ? 'update' : 'create',
           clientTempId: item.clientTempId,
           idempotencyKey: item.idempotencyKey,
+          serverId: item.serverId,
           name: item.data.name,
           price: item.data.price,
           imageUrl: imageUrl,
         };
       } else {
         return {
-          type: 'sale',
+          type: 'sale' as const,
           clientTempId: item.clientTempId,
           idempotencyKey: item.idempotencyKey,
           totalAmount: item.data.totalAmount,

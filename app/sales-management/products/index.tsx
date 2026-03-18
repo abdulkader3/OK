@@ -4,19 +4,31 @@ import { useSales } from '@/src/contexts/SalesContext';
 import { EmptyState, ProductCard } from '@/src/components/sales';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProductsListScreen() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { products, deleteProduct, isLoading } = useSales();
+  const { products, deleteProduct, isLoading, isSyncing, syncAll } = useSales();
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await syncAll();
+    } catch (error) {
+      console.error('Failed to refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [syncAll]);
 
   const handleDelete = (id: string, productName: string) => {
     Alert.alert(
@@ -62,6 +74,18 @@ export default function ProductsListScreen() {
           >
             <MaterialIcons name="add" size={24} color={Colors.light.primary} />
           </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={handleRefresh}
+            style={styles.refreshButton}
+            activeOpacity={0.7}
+            disabled={isSyncing || refreshing}
+          >
+            <MaterialIcons 
+              name="refresh" 
+              size={24} 
+              color={isSyncing || refreshing ? Colors.light.textMuted : Colors.light.accentTeal} 
+            />
+          </TouchableOpacity>
         </View>
 
         {products.length > 0 && (
@@ -98,6 +122,14 @@ export default function ProductsListScreen() {
               />
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={Colors.light.primary}
+                colors={[Colors.light.primary]}
+              />
+            }
           />
         )}
       </View>
@@ -136,6 +168,9 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
   },
   addButton: {
+    padding: Spacing.xs,
+  },
+  refreshButton: {
     padding: Spacing.xs,
   },
   searchContainer: {

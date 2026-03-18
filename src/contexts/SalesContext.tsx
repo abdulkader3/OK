@@ -93,6 +93,14 @@ const SalesContext = createContext<SalesContextType | undefined>(undefined);
 let _reloadFromStorageFn: (() => Promise<void>) | null = null;
 export const triggerReloadFromStorage = () => _reloadFromStorageFn?.();
 
+type ClearAllFn = () => Promise<void>;
+let _clearAllFnRef: ClearAllFn | null = null;
+export const clearAllFromStorage = (): void => {
+  if (_clearAllFnRef !== null) {
+    _clearAllFnRef();
+  }
+};
+
 export function SalesProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -281,11 +289,33 @@ export function SalesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProduct = (id: string, updates: Partial<Product>) => {
+    const product = products.find(p => p._id === id);
+    if (!product) return;
+    
     const newProducts = products.map(p => 
-      p._id === id ? { ...p, ...updates } : p
+      p._id === id ? { ...p, ...updates, syncStatus: 'pending' as SyncStatus } : p
     );
     setProducts(newProducts);
     saveProducts(newProducts);
+    
+    const serverId = product.serverId || product._id;
+    const isUpdate = !!product.serverId;
+    
+    addToSyncQueue({
+      type: 'product',
+      clientTempId: product.clientTempId || product._id,
+      serverId: isUpdate ? serverId : undefined,
+      idempotencyKey: generateIdempotencyKey(),
+      data: {
+        name: updates.name ?? product.name,
+        price: updates.price ?? product.price,
+        imageUrl: updates.imageUrl ?? product.imageUrl,
+      },
+      status: 'pending',
+    });
+    
+    updatePendingCount();
+    triggerDebouncedSync();
   };
 
   const deleteProduct = (id: string) => {
@@ -555,6 +585,8 @@ export function SalesProvider({ children }: { children: ReactNode }) {
         setSales([]);
         setLastSyncTime(null);
       };
+
+      _clearAllFnRef = clearAll;
 
       const reloadFromStorage = async () => {
         const productsData = await AsyncStorage.getItem(STORAGE_KEYS.PRODUCTS);

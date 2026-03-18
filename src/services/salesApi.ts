@@ -65,8 +65,10 @@ export interface CreateSaleRequest {
 
 export interface SyncOperation {
   type: 'product' | 'sale';
+  operation?: 'create' | 'update' | 'delete';
   clientTempId: string;
   idempotencyKey: string;
+  serverId?: string;
   name?: string;
   price?: number;
   imageUrl?: string;
