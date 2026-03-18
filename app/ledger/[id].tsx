@@ -7,6 +7,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Paths, File } from 'expo-file-system';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -117,8 +118,12 @@ export default function LedgerDetailScreen() {
       const html = generateLedgerDetailPDFHtml(ledger, payments, translations);
       const { uri } = await Print.printToFileAsync({ html });
       
+      const destFile = new File(Paths.cache, `ledger-details-${Date.now()}.pdf`);
+      const sourceFile = new File(uri);
+      await sourceFile.copy(destFile);
+      
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(destFile.uri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Export Ledger Details',
           UTI: 'com.adobe.pdf',

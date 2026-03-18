@@ -19,6 +19,8 @@ export interface SalesPDFTranslations {
   "sales.pdf.allTime": string;
   "common.date": string;
   "common.amount": string;
+  "sales.pdf.cash": string;
+  "sales.pdf.card": string;
 }
 
 export interface SalesSummaryData {
@@ -134,7 +136,10 @@ export function generateSalesPDFHtml(
       <td style="text-align:right">${formatCurrency(sale.totalAmount || sale.total || 0)}</td>
       <td>
         <span style="padding:4px 8px;border-radius:4px;font-size:11px;background:${sale.paymentStatus === "not_paid" ? "#fee2e2" : "#dcfce7"};color:${sale.paymentStatus === "not_paid" ? "#dc2626" : "#16a34a"}">
-          ${sale.paymentStatus === "not_paid" ? translations["sales.pdf.notPaid"] : translations["sales.pdf.paid"]}
+          ${sale.paymentStatus === "not_paid" 
+            ? translations["sales.pdf.notPaid"] 
+            : `${translations["sales.pdf.paid"]} (${sale.paymentMethod === 'cash' ? translations["sales.pdf.cash"] : translations["sales.pdf.card"]})`
+          }
         </span>
       </td>
       <td>${sale.ledgerName || "-"}</td>

@@ -8,6 +8,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Paths, File } from 'expo-file-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -221,6 +222,8 @@ export default function SalesHistoryScreen() {
         'sales.pdf.allTime': t('sales.pdf.allTime'),
         'common.date': t('common.date'),
         'common.amount': t('common.amount'),
+        'sales.pdf.cash': t('sales.cash'),
+        'sales.pdf.card': t('sales.card'),
       };
 
       const summary = calculateSalesSummary(allSales);
@@ -233,10 +236,13 @@ export default function SalesHistoryScreen() {
         : actualDateFrom 
           ? `from-${actualDateFrom}` 
           : 'all';
-      const newUri = uri.replace('printed.pdf', `sales-${dateRangeStr}.pdf`);
+      const newFileName = `sales-${dateRangeStr}-${Date.now()}.pdf`;
+      const destFile = new File(Paths.cache, newFileName);
+      const sourceFile = new File(uri);
+      await sourceFile.copy(destFile);
 
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(newUri, {
+        await Sharing.shareAsync(destFile.uri, {
           mimeType: 'application/pdf',
           dialogTitle: t('sales.exportPdf'),
           UTI: 'com.adobe.pdf',
