@@ -47,7 +47,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "API_URL": "http://172.20.10.5:4000",
+      "API_URL": "https://ok-backend.onrender.com",
       "router": {},
       "eas": {
         "projectId": "43075f4f-5720-40cc-ab0f-3cee21a98217"
