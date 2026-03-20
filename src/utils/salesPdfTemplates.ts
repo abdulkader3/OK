@@ -229,6 +229,20 @@ export interface SingleSalePDFTranslations {
   "sales.pdf.card": string;
   "sales.pdf.customer": string;
   "common.date": string;
+  "sales.pdf.deliveryDate"?: string;
+  "sales.pdf.invoiceNo"?: string;
+  "sales.pdf.vat"?: string;
+  "sales.pdf.netTotal"?: string;
+  "sales.pdf.temporaryBill"?: string;
+  "sales.pdf.unpaid"?: string;
+  "sales.pdf.paid"?: string;
+  "sales.pdf.balance"?: string;
+  "sales.pdf.admin"?: string;
+  "sales.pdf.printedAt"?: string;
+  "sales.pdf.thankYou"?: string;
+  "sales.pdf.visitAgain"?: string;
+  "sales.pdf.status"?: string;
+  "sales.pdf.itemsCount"?: string;
 }
 
 export function generateSingleSalePDFHtml(
@@ -236,120 +250,195 @@ export function generateSingleSalePDFHtml(
   translations: SingleSalePDFTranslations,
   symbol: string = "৳"
 ): string {
+  const saleDate = sale.createdAt ? new Date(sale.createdAt).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }) : new Date().toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const printDate = new Date().toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  const deliveryDate = (sale as any).deliveryDate ? new Date((sale as any).deliveryDate).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }) : saleDate;
+
+  const invoiceNo = (sale as any).invoiceNumber || sale._id?.slice(-6) || "N/A";
+
+  const paymentMethodLabel =
+    !sale.ledgerId && sale.paymentMethod === "cash"
+      ? translations["sales.pdf.cash"] || "Cash"
+      : !sale.ledgerId && sale.paymentMethod === "card"
+        ? translations["sales.pdf.card"] || "Card"
+        : sale.ledgerName
+          ? translations["sales.pdf.customer"] || "Customer"
+          : "—";
+
+  const isPaid = sale.ledgerId ? false : sale.paymentStatus !== "not_paid";
+
   const itemsRows = sale.items
     .map(
       (item) => `
-      <tr>
-        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:16px;color:#1f2937;">${item.productName || item.name || "Item"}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:center;width:50px;font-size:16px;color:#6b7280;">${item.quantity}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right;width:90px;font-size:16px;color:#6b7280;">${formatCurrency(item.productPrice || item.price || 0, symbol)}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;text-align:right;width:90px;font-size:16px;font-weight:500;color:#1f2937;">${formatCurrency(item.subtotal, symbol)}</td>
-      </tr>
+      <div class="table-row">
+        <div>${item.productName || item.name || "Item"}</div>
+        <div>${item.quantity}</div>
+        <div>${(item.productPrice || item.price || 0).toFixed(2)}</div>
+        <div>0.00</div>
+        <div>${(item.subtotal || (item.quantity * (item.productPrice || item.price || 0))).toFixed(2)}</div>
+      </div>
     `
     )
     .join("");
 
-  const paymentMethodLabel =
-    !sale.ledgerId && sale.paymentMethod === "cash"
-      ? translations["sales.pdf.cash"]
-      : !sale.ledgerId && sale.paymentMethod === "card"
-        ? translations["sales.pdf.card"]
-        : null;
+  const totalAmount = sale.totalAmount || sale.total || 0;
+  const totalFormatted = `${symbol} ${totalAmount.toFixed(2)}`;
 
   return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>${translations["sales.receipt"]}</title>
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1f2937; }
-        
-        .card {
-          background: #ffffff;
-          border-radius: 16px;
-          padding: 40px;
-          border: 1px solid #e5e7eb;
-          max-width: 600px;
-          margin: 0 auto;
-        }
-        
-        .header { text-align: center; margin-bottom: 24px; display: flex; align-items: center; justify-content: center; gap: 12px; }
-        .header .icon { font-size: 36px; color: #000000; }
-        .header h1 { font-size: 28px; font-weight: 700; color: #1f2937; margin: 0; }
-        .date { font-size: 18px; color: #6b7280; text-align: center; margin-bottom: 16px; }
-        
-        .customer-section { background: #f9fafb; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .customer-label { font-size: 18px; color: #6b7280; }
-        .customer-name { font-size: 18px; font-weight: 600; color: #1f2937; }
-        
-        .payment-section { background: #f9fafb; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .payment-label { font-size: 18px; color: #6b7280; }
-        .payment-value { font-size: 18px; font-weight: 600; color: #1f2937; }
-        
-        .divider { height: 1px; background: #e5e7eb; margin: 16px 0; }
-        
-        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-        th { padding: 14px 8px; font-weight: 600; color: #6b7280; font-size: 16px; border-bottom: 1px solid #e5e7eb; }
-        th:nth-child(1) { text-align: left; }
-        th:nth-child(2) { text-align: center; }
-        th:nth-child(3) { text-align: right; }
-        th:nth-child(4) { text-align: right; }
-        
-        .total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 8px; }
-        .total-label { font-size: 26px; font-weight: 700; color: #1f2937; }
-        .total-amount { font-size: 42px; font-weight: 700; color: #1f2937; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="header">
-          <span class="icon material-icons">receipt_long</span>
-          <h1>Sales Received</h1>
-        </div>
-        
-        <div class="date">${formatDateTime(sale.createdAt)}</div>
-        
-        ${sale.ledgerName ? `
-          <div class="customer-section">
-            <span class="customer-label">${translations["sales.pdf.customer"]}:</span>
-            <span class="customer-name">${sale.ledgerName}</span>
-          </div>
-        ` : ""}
-        
-        ${paymentMethodLabel ? `
-          <div class="payment-section">
-            <span class="payment-label">${translations["sales.pdf.paymentMethod"]}:</span>
-            <span class="payment-value">${paymentMethodLabel}</span>
-          </div>
-        ` : ""}
-        
-        <div class="divider"></div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>${translations["sales.pdf.items"]}</th>
-              <th>${translations["sales.pdf.quantity"]}</th>
-              <th style="text-align:right">${translations["sales.pdf.price"]}</th>
-              <th style="text-align:right">${translations["sales.pdf.subtotal"]}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsRows}
-          </tbody>
-        </table>
-        
-        <div class="divider"></div>
-        
-        <div class="total-row">
-          <span class="total-label">${translations["sales.pdf.total"]}</span>
-          <span class="total-amount">${formatCurrency(sale.totalAmount || sale.total || 0, symbol)}</span>
-        </div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Receipt</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: monospace;
+      background: #e5e7eb;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+    .receipt {
+      width: 600px;
+      background: #fff;
+      padding: 40px 32px;
+      color: #000;
+    }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .small { font-size: 15px; }
+    .space { margin: 16px 0; }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 17px;
+      margin: 8px 0;
+    }
+    .table {
+      width: 100%;
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    .table-header {
+      display: grid;
+      grid-template-columns: 2fr 0.8fr 1fr 0.8fr 1fr;
+      font-weight: bold;
+      border-bottom: 2px dashed #000;
+      padding-bottom: 8px;
+      font-size: 18px;
+    }
+    .table-row {
+      display: grid;
+      grid-template-columns: 2fr 0.8fr 1fr 0.8fr 1fr;
+      margin-top: 12px;
+      font-size: 17px;
+    }
+    .line {
+      border-top: 2px dashed #000;
+      margin: 16px 0;
+    }
+    .big-total {
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .barcode {
+      text-align: center;
+      font-size: 28px;
+      margin: 24px 0;
+      letter-spacing: 4px;
+    }
+    .footer-text {
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="receipt">
+
+    <div class="center">
+      <div class="title">Sifat Al Nadaa Laundry</div>
+      <div class="subtitle">Ash Shifa, Riyadh14721, KSA</div>
+      <div class="subtitle">Mobile: 0500000000</div>
+      <div class="subtitle">CR No: 7033023537</div>
+      <div class="bold space">Inv. No : ${invoiceNo}</div>
+    </div>
+
+    <div class="row"><span>Date :</span><span>${saleDate}</span></div>
+    <div class="row"><span>Delivery Date :</span><span>${deliveryDate}</span></div>
+    <div class="row"><span></span><span>${paymentMethodLabel}</span></div>
+
+    <div class="table">
+      <div class="table-header">
+        <div>Item</div>
+        <div>Qty</div>
+        <div>Price</div>
+        <div>VAT</div>
+        <div>Total</div>
       </div>
-    </body>
-    </html>
+
+      ${itemsRows}
+    </div>
+
+    <div class="line"></div>
+
+    <div class="row bold big-total"><span>Net Total :</span><span>${totalAmount.toFixed(2)}</span></div>
+    <div class="row bold big-total"><span>Total</span><span>${totalFormatted}</span></div>
+
+    <div class="line"></div>
+
+    <div class="row"><span>Items :</span><span>${sale.items.length}</span></div>
+
+    <div class="row">
+      <span>Temporary Bill</span>
+      <span>Status : ${isPaid ? (translations["sales.pdf.paid"] || "Paid") : (translations["sales.pdf.unpaid"] || "Unpaid")}</span>
+    </div>
+
+    <div class="row"><span>Balance</span><span>0.00</span></div>
+
+    <div class="barcode">*${invoiceNo.replace(/[^a-zA-Z0-9]/g, "")}*</div>
+
+    <div class="row small footer-text"><span>Admin</span><span>Print: ${printDate}</span></div>
+
+    <div class="center small space footer-text">
+      ${translations["sales.pdf.thankYou"] || "Thank you"}<br>
+      ${translations["sales.pdf.visitAgain"] || "Visit Again"}
+    </div>
+
+  </div>
+
+</body>
+</html>
   `;
 }

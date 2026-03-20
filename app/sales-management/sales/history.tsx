@@ -14,7 +14,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type QuickFilter = 'today' | 'thisWeek' | 'thisMonth' | 'all' | 'custom';
+type QuickFilter = 'yesterday' | 'today' | 'thisWeek' | 'thisMonth' | 'all' | 'custom';
 
 interface DateRange {
   dateFrom: string | null;
@@ -26,6 +26,12 @@ function getDateRange(filter: QuickFilter): DateRange {
   const todayStr = today.toISOString().split('T')[0];
   
   switch (filter) {
+    case 'yesterday': {
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      return { dateFrom: yesterdayStr, dateTo: yesterdayStr };
+    }
     case 'today':
       return { dateFrom: todayStr, dateTo: todayStr };
     case 'thisWeek': {
@@ -58,16 +64,16 @@ function formatDateDisplay(dateString: string | null): string {
 }
 
 function getDateLabel(dateString: string | null, t: (key: string) => string): string {
-  if (!dateString) return t('sales.allTime');
-  const today = new Date();
+  if (!dateString) return '';
   const date = new Date(dateString);
+  const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split('T')[0];
 
   if (dateString === todayStr) return t('sales.today');
-  if (dateString === yesterdayStr) return 'Yesterday';
+  if (dateString === yesterdayStr) return t('sales.yesterday');
   return formatDateDisplay(dateString);
 }
 
@@ -262,6 +268,7 @@ export default function SalesHistoryScreen() {
 
   const getActiveFilterLabel = (): string => {
     if (quickFilter === 'all') return t('sales.allTime');
+    if (quickFilter === 'yesterday') return t('sales.yesterday');
     if (quickFilter === 'today') return t('sales.today');
     if (quickFilter === 'thisWeek') return t('sales.thisWeek');
     if (quickFilter === 'thisMonth') return t('sales.thisMonth');
@@ -447,6 +454,30 @@ export default function SalesHistoryScreen() {
 
               <View style={styles.quickFilters}>
                 <TouchableOpacity
+                  style={[styles.quickFilterBtn, styles.backArrowBtn]}
+                  onPress={() => {
+                    const currentRange = getCurrentDateRange();
+                    if (currentRange.dateFrom) {
+                      const newDate = new Date(currentRange.dateFrom);
+                      newDate.setDate(newDate.getDate() - 1);
+                      setDateFrom(newDate);
+                      setDateTo(newDate);
+                      setQuickFilter('custom');
+                      setShowFilter(false);
+                    }
+                  }}
+                >
+                  <MaterialIcons name="chevron-left" size={24} color={Colors.light.text} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickFilterBtn, quickFilter === 'yesterday' && styles.quickFilterActive]}
+                  onPress={() => handleQuickFilter('yesterday')}
+                >
+                  <Text style={[styles.quickFilterText, quickFilter === 'yesterday' && styles.quickFilterTextActive]}>
+                    {t('sales.yesterday')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.quickFilterBtn, quickFilter === 'today' && styles.quickFilterActive]}
                   onPress={() => handleQuickFilter('today')}
                 >
@@ -485,12 +516,16 @@ export default function SalesHistoryScreen() {
                 <View style={styles.dateInputs}>
                   <View style={styles.dateInput}>
                     <MaterialIcons name="calendar-today" size={18} color={Colors.light.textSecondary} />
-                    <Text style={styles.dateInputText}>{formatDateDisplay(dateFrom.toISOString().split('T')[0])}</Text>
+                    <Text style={styles.dateInputText}>
+                      {formatDateDisplay(quickFilter === 'custom' ? dateFrom.toISOString().split('T')[0] : getDateRange(quickFilter).dateFrom)}
+                    </Text>
                   </View>
                   <Text style={styles.dateSeparator}>-</Text>
                   <View style={styles.dateInput}>
                     <MaterialIcons name="calendar-today" size={18} color={Colors.light.textSecondary} />
-                    <Text style={styles.dateInputText}>{formatDateDisplay(dateTo.toISOString().split('T')[0])}</Text>
+                    <Text style={styles.dateInputText}>
+                      {formatDateDisplay(quickFilter === 'custom' ? dateTo.toISOString().split('T')[0] : getDateRange(quickFilter).dateTo)}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -758,6 +793,14 @@ const styles = StyleSheet.create({
   quickFilterActive: {
     backgroundColor: Colors.light.primary,
     borderColor: Colors.light.primary,
+  },
+  backArrowBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.light.backgroundAlt,
+    borderWidth: 1,
+    borderColor: Colors.light.border || '#e5e7eb',
   },
   quickFilterText: {
     fontSize: FontSize.sm,
