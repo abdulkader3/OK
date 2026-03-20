@@ -477,7 +477,7 @@ export function generateSingleSalePDFHtml(
     <div class="center">
       <div class="title">Sifat Al Nadaa Laundry</div>
       <div class="subtitle">Ash Shifa, Riyadh14721, KSA</div>
-      <div class="subtitle">Mobile: 0500000000</div>
+      <div class="subtitle">Mobile: 0550328205</div>
       <div class="subtitle">CR No: 7033023537</div>
       <div class="bold space">Inv. No : ${invoiceNo}</div>
     </div>
