@@ -12,10 +12,6 @@
       "supportsTablet": true
     },
     "android": {
-      "permissions": [
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE"
-      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./app_logo/boss-book-logo.png",
@@ -44,7 +40,16 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": ["application/pdf"]
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

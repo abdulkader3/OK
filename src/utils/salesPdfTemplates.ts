@@ -484,6 +484,7 @@ export function generateSingleSalePDFHtml(
 
     <div class="row"><span>Date :</span><span>${saleDate}</span></div>
     <div class="row"><span>Delivery Date :</span><span>${deliveryDate}</span></div>
+    ${sale.ledgerName ? `<div class="row"><span>Customer :</span><span>${sale.ledgerName}</span></div>` : ''}
     <div class="row"><span></span><span>${paymentMethodLabel}</span></div>
 
     <div class="table">

@@ -8,8 +8,6 @@ import { generateSalesPDFHtml, SalesPDFTranslations, calculateSalesSummary } fro
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { Paths, File } from 'expo-file-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -237,27 +235,7 @@ export default function SalesHistoryScreen() {
       const summary = calculateSalesSummary(allSales);
       const html = generateSalesPDFHtml(allSales, summary, translations, currency, actualDateFrom || undefined, actualDateTo || undefined);
 
-      const { uri } = await Print.printToFileAsync({ html });
-      
-      const dateRangeStr = actualDateFrom && actualDateTo 
-        ? `${actualDateFrom}-to-${actualDateTo}` 
-        : actualDateFrom 
-          ? `from-${actualDateFrom}` 
-          : 'all';
-      const newFileName = `sales-${dateRangeStr}-${Date.now()}.pdf`;
-      const destFile = new File(Paths.cache, newFileName);
-      const sourceFile = new File(uri);
-      await sourceFile.copy(destFile);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(destFile.uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: t('sales.exportPdf'),
-          UTI: 'com.adobe.pdf',
-        });
-      } else {
-        Alert.alert('Error', 'Sharing is not available on this device.');
-      }
+      await Print.printAsync({ html });
     } catch (err) {
       console.error('Export error:', err);
       Alert.alert(t('sales.error'), 'Failed to export PDF');

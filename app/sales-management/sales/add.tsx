@@ -12,8 +12,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Alert, ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { File, Paths } from 'expo-file-system';
 
 interface CartItem extends SaleItemType {
   productId: string;
@@ -206,22 +204,7 @@ export default function AddSaleScreen() {
       };
 
       const html = generateSingleSalePDFHtml(receiptSale, translations, currencySymbol);
-      const { uri } = await Print.printToFileAsync({ html });
-
-      const newFileName = `receipt-${receiptSale._id || Date.now()}.pdf`;
-      const destFile = new File(Paths.cache, newFileName);
-      const sourceFile = new File(uri);
-      await sourceFile.copy(destFile);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(destFile.uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: t('sales.printPdf') || 'Print Receipt',
-          UTI: 'com.adobe.pdf',
-        });
-      } else {
-        Alert.alert(t('sales.error') || 'Error', 'Sharing is not available on this device.');
-      }
+      await Print.printAsync({ html });
     } catch (err) {
       console.error('Print error:', err);
       Alert.alert(t('sales.error') || 'Error', 'Failed to generate PDF');

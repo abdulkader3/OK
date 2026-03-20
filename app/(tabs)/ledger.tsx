@@ -9,8 +9,6 @@ import { calculateSummary, generateLedgerPDFHtml } from '@/src/utils/pdfTemplate
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { Paths, File } from 'expo-file-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl, ActivityIndicator, Modal, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -88,21 +86,7 @@ export default function LedgerScreen() {
             };
             const html = generateLedgerPDFHtml(allLedgers, summary, translations, currency);
             
-            const { uri } = await Print.printToFileAsync({ html });
-            
-            const destFile = new File(Paths.cache, `ledger-report-${Date.now()}.pdf`);
-            const sourceFile = new File(uri);
-            await sourceFile.copy(destFile);
-            
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(destFile.uri, {
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Export Ledger Report',
-                    UTI: 'com.adobe.pdf',
-                });
-            } else {
-                Alert.alert('Error', 'Sharing is not available on this device.');
-            }
+            await Print.printAsync({ html });
         } catch (err) {
             console.error('Export error:', err);
             Alert.alert('Export Failed', 'Unable to export ledger report. Please try again.');
