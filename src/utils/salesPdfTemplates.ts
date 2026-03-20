@@ -120,10 +120,10 @@ export function generateSalesPDFHtml(
       </td>
       <td style="text-align:right">${formatCurrency(sale.totalAmount || sale.total || 0, currency)}</td>
       <td>
-        <span style="padding:4px 8px;border-radius:4px;font-size:11px;background:${sale.paymentStatus === "not_paid" ? "#fee2e2" : "#dcfce7"};color:${sale.paymentStatus === "not_paid" ? "#dc2626" : "#16a34a"}">
+        <span style="padding:3px 8px;border-radius:12px;font-size:10px;font-weight:500;background:${sale.paymentStatus === "not_paid" ? "#fef2f2" : "#f0fdf4"};color:${sale.paymentStatus === "not_paid" ? "#dc2626" : "#16a34a"}">
           ${sale.paymentStatus === "not_paid" 
             ? translations["sales.pdf.notPaid"] 
-            : `${translations["sales.pdf.paid"]} (${sale.paymentMethod === 'cash' ? translations["sales.pdf.cash"] : translations["sales.pdf.card"]})`
+            : `${sale.paymentMethod === 'cash' ? translations["sales.pdf.cash"] : translations["sales.pdf.card"]}`
           }
         </span>
       </td>
@@ -141,76 +141,163 @@ export function generateSalesPDFHtml(
       <title>${translations["sales.pdf.title"]}</title>
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; color: #1f2937; }
-        .header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #3b82f6; padding-bottom: 16px; }
-        .header h1 { color: #1e40af; font-size: 24px; margin-bottom: 4px; }
-        .header .date-range { color: #6b7280; font-size: 14px; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; display: flex; justify-content: center; }
         
-        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-        .summary-card { background: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center; }
-        .summary-card .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
-        .summary-card .value { font-size: 20px; font-weight: bold; color: #1f2937; }
-        .summary-card.highlight { background: #dbeafe; }
+        .receipt {
+          width: 100%;
+          max-width: 800px;
+          background: #ffffff;
+          margin: 20px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          padding: 24px;
+          color: #111827;
+        }
+        
+        .center { text-align: center; }
+        .bold { font-weight: 600; }
+        .small { font-size: 12px; color: #6b7280; }
+        
+        .header h1 {
+          font-size: 20px;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+        
+        .divider {
+          border-top: 1px dashed #d1d5db;
+          margin: 14px 0;
+        }
+        
+        .date-range {
+          font-size: 13px;
+          color: #6b7280;
+          margin-top: 6px;
+        }
+        
+        .summary-grid { 
+          display: grid; 
+          grid-template-columns: repeat(4, 1fr); 
+          gap: 10px; 
+          margin-bottom: 20px; 
+        }
+        
+        .summary-card { 
+          background: #f9fafb; 
+          padding: 14px 12px; 
+          border-radius: 6px; 
+          text-align: center; 
+          border: 1px solid #e5e7eb;
+        }
+        .summary-card .label { font-size: 11px; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; }
+        .summary-card .value { font-size: 18px; font-weight: bold; color: #111827; }
+        .summary-card.highlight { background: #eff6ff; border-color: #bfdbfe; }
         .summary-card.highlight .value { color: #2563eb; }
-        .summary-card.credit { background: #fef2f2; }
+        .summary-card.credit { background: #fef2f2; border-color: #fecaca; }
         .summary-card.credit .value { color: #dc2626; }
+        .summary-card.paid { background: #f0fdf4; border-color: #bbf7d0; }
+        .summary-card.paid .value { color: #16a34a; }
         
-        .section-title { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
+        .section-title { 
+          font-size: 14px; 
+          font-weight: 600; 
+          color: #374151; 
+          margin-bottom: 12px; 
+          padding-bottom: 8px; 
+          border-bottom: 1px solid #e5e7eb; 
+        }
         
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-        th { background: #f9fafb; padding: 10px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
-        td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+        th { 
+          background: #f9fafb; 
+          padding: 10px 8px; 
+          text-align: left; 
+          font-weight: 600; 
+          color: #374151; 
+          border-bottom: 1px solid #e5e7eb;
+          font-size: 11px;
+          text-transform: uppercase;
+        }
+        td { 
+          padding: 10px 8px; 
+          border-bottom: 1px dashed #e5e7eb; 
+          vertical-align: top; 
+        }
         tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) { background: #fafafa; }
         
-        .items-table { font-size: 11px; margin-top: 4px; }
-        .items-table td { padding: 4px 8px; border: none; }
+        .footer { 
+          text-align: center; 
+          margin-top: 20px; 
+          padding-top: 16px; 
+          border-top: 1px dashed #d1d5db; 
+          color: #6b7280; 
+          font-size: 11px; 
+        }
         
-        .footer { text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 11px; }
+        @media print {
+          body { background: #fff; }
+          .receipt { box-shadow: none; margin: 0; }
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>${translations["sales.pdf.title"]}</h1>
-        <div class="date-range">${translations["sales.pdf.dateRange"]}: ${dateRangeText}</div>
-      </div>
-      
-      <div class="summary-grid">
-        <div class="summary-card highlight">
-          <div class="label">${translations["sales.pdf.totalSales"]}</div>
-          <div class="value">${formatCurrency(summary.totalAmount, currency)}</div>
+      <div class="receipt">
+        
+        <!-- Header -->
+        <div class="header center">
+          <h1>Sifat Al Nadaa Laundry</h1>
+          <div class="small">Ash Shifa, Riyadh14721, KSA</div>
+          <div class="small">Mobile: 0550328205</div>
+          <div class="small">CR No: 7033023537</div>
+          <div class="date-range">${translations["sales.pdf.dateRange"]}: ${dateRangeText}</div>
         </div>
-        <div class="summary-card">
-          <div class="label">${translations["sales.pdf.transactions"]}</div>
-          <div class="value">${summary.totalTransactions}</div>
+        
+        <div class="divider"></div>
+        
+        <!-- Summary Grid -->
+        <div class="summary-grid">
+          <div class="summary-card highlight">
+            <div class="label">${translations["sales.pdf.totalSales"]}</div>
+            <div class="value">${formatCurrency(summary.totalAmount, currency)}</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">${translations["sales.pdf.transactions"]}</div>
+            <div class="value">${summary.totalTransactions}</div>
+          </div>
+          <div class="summary-card paid">
+            <div class="label">${translations["sales.pdf.paidSales"]}</div>
+            <div class="value">${summary.paidTransactions}</div>
+          </div>
+          <div class="summary-card credit">
+            <div class="label">${translations["sales.pdf.creditSales"]}</div>
+            <div class="value">${summary.unpaidTransactions}</div>
+          </div>
         </div>
-        <div class="summary-card">
-          <div class="label">${translations["sales.pdf.paidSales"]}</div>
-          <div class="value">${summary.paidTransactions}</div>
+        
+        <div class="section-title">${translations["sales.pdf.transactions"]}</div>
+        
+        <!-- Transactions Table -->
+        <table>
+          <thead>
+            <tr>
+              <th>${translations["common.date"]}</th>
+              <th>${translations["sales.pdf.items"]}</th>
+              <th style="text-align:right">${translations["common.amount"]}</th>
+              <th>${translations["sales.pdf.paymentStatus"]}</th>
+              <th>${translations["sales.pdf.customer"]}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${salesRows}
+          </tbody>
+        </table>
+        
+        <!-- Footer -->
+        <div class="footer">
+          <div>${translations["sales.pdf.generatedOn"]}: ${new Date().toLocaleString()}</div>
         </div>
-        <div class="summary-card credit">
-          <div class="label">${translations["sales.pdf.creditSales"]}</div>
-          <div class="value">${summary.unpaidTransactions}</div>
-        </div>
-      </div>
-      
-      <div class="section-title">${translations["sales.pdf.transactions"]}</div>
-      <table>
-        <thead>
-          <tr>
-            <th>${translations["common.date"]}</th>
-            <th>${translations["sales.pdf.items"]}</th>
-            <th style="text-align:right">${translations["common.amount"]}</th>
-            <th>${translations["sales.pdf.paymentStatus"]}</th>
-            <th>${translations["sales.pdf.customer"]}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${salesRows}
-        </tbody>
-      </table>
-      
-      <div class="footer">
-        ${translations["sales.pdf.generatedOn"]}: ${new Date().toLocaleString()}
+        
       </div>
     </body>
     </html>
