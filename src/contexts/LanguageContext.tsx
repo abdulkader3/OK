@@ -448,6 +448,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'sales.paymentMethod': 'Payment Method',
     'sales.cash': 'Cash',
     'sales.card': 'Card',
+    'sales.close': 'Close',
+    'sales.printPdf': 'Print PDF',
   },
   bn: {
     // Common
@@ -812,6 +814,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'sales.paymentMethod': 'পেমেন্ট পদ্ধতি',
     'sales.cash': 'নগদ',
     'sales.card': 'কার্ড',
+    'sales.close': 'বন্ধ করুন',
+    'sales.printPdf': 'পিডিএফ প্রিন্ট করুন',
   },
 };
 

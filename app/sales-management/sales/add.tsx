@@ -227,6 +227,7 @@ export default function AddSaleScreen() {
       Alert.alert(t('sales.error') || 'Error', 'Failed to generate PDF');
     } finally {
       setPrinting(false);
+      handleCloseReceipt();
     }
   };
 
